@@ -6,7 +6,8 @@ import { supabase } from "@/lib/supabase";
 import { 
   Trash, MagnifyingGlass, Eye, X, Ruler, MathOperations, 
   CheckCircle, Clock, Prohibit, FilePdf, 
-  CaretDown, Warning, FileXls, PencilSimple, User, Wrench
+  CaretDown, Warning, FileXls, PencilSimple, User, Wrench,
+  ListChecks, CheckSquareOffset // <-- Novos ícones para seleção
 } from "@phosphor-icons/react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -25,9 +26,14 @@ export default function Historico() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [idToDelete, setIdToDelete] = useState<number | null>(null);
   
-  // NOVO: Estado para o Modal de Escolha de PDF
+  // Estado para o Modal de Escolha de PDF
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [pedidoParaPdf, setPedidoParaPdf] = useState<any>(null);
+
+  // === NOVOS ESTADOS: EXCLUSÃO EM MASSA ===
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
 
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({
     key: 'created_at',
@@ -53,7 +59,7 @@ export default function Historico() {
   const exportarExcel = () => {
     const dadosExcel = pedidosProcessados.map(p => ({
       ID: p.id,
-      Data: p.data,
+      Data: p.data || new Date(p.created_at).toLocaleDateString('pt-BR'),
       Cliente: p.cliente,
       Vendedor: p.vendedor || "Sistema",
       Qtd_Janelas: p.qtd_janelas,
@@ -71,19 +77,18 @@ export default function Historico() {
     XLSX.writeFile(wb, nomeArquivo);
   };
 
-const formatBRL = (v: number) => 
-  new Intl.NumberFormat('pt-BR', { 
-    style: 'currency', 
-    currency: 'BRL' 
-  }).format(Number(v));
+  const formatBRL = (v: number) => 
+    new Intl.NumberFormat('pt-BR', { 
+      style: 'currency', 
+      currency: 'BRL' 
+    }).format(Number(v));
 
-// =========================================================================
-  // NOVA FUNÇÃO: GERAR PDF DO CLIENTE (Letra Grande, Grossa e Preta)
+  // =========================================================================
+  // FUNÇÃO: GERAR PDF DO CLIENTE
   // =========================================================================
   const gerarPdfCliente = async (p: any) => {
     const doc = new jsPDF();
     
-    // 1. CARREGAR A FONTE MONTSERRAT
     try {
       const loadFont = async (path: string, name: string, weight: string) => {
         const res = await fetch(path);
@@ -105,44 +110,37 @@ const formatBRL = (v: number) =>
       doc.setFont('helvetica');
     }
 
-    // Configurações Globais de Cor (Preto Absoluto)
     doc.setTextColor(0, 0, 0);
     doc.setDrawColor(0, 0, 0);
 
-    // 2. IMAGEM DO HEADER
     try {
       doc.addImage('/logo.jpg', 'JPEG', 0, 0, 210, 42); 
     } catch (e) {
       console.error("Logo não encontrada.");
     }
 
-    // 3. TÍTULO "Orçamento"
     doc.setFontSize(20); 
     doc.setFont("Montserrat", "bold");
-    doc.setLineWidth(0.2); // Bem grosso
+    doc.setLineWidth(0.2); 
     doc.text("Orçamento", 105, 58, { align: "center", renderingMode: 'fillThenStroke' });
 
-    // 4. CORPO DO DOCUMENTO (Ambientes)
     let y = 75;
-    doc.setFontSize(14); // Aumentado para 14 a pedido da loja
+    doc.setFontSize(14); 
     
     p.itens?.forEach((item: any) => {
       if (y > 230) { doc.addPage(); y = 25; }
 
-      // Nome do Ambiente (Negrito com Stroke Forte)
       doc.setFont("Montserrat", "bold");
       doc.setLineWidth(0.2); 
       const ambienteTexto = `${item.nome}:`;
       doc.text(ambienteTexto, 14, y, { renderingMode: 'fillThenStroke' });
       
-      // Linha sublinhada do ambiente
       doc.setLineWidth(0.4);
       doc.line(14, y + 1.5, 14 + doc.getTextWidth(ambienteTexto), y + 1.5); 
       y += 9;
       
-      // Descrição Técnica (Texto Normal engrossado com Stroke para ficar bem preto)
       doc.setFont("Montserrat", "normal");
-      doc.setLineWidth(0.1); // Este comando engrossa a fonte normal na impressão
+      doc.setLineWidth(0.1); 
       const arrDesc = item.desc.split(' | '); 
       const modelo = arrDesc[0] || '';
       const tecido = arrDesc[1] || 'Sem tecido';
@@ -153,10 +151,9 @@ const formatBRL = (v: number) =>
       
       const splitTexto = doc.splitTextToSize(textoCortina, 180);
       doc.text(splitTexto, 14, y, { renderingMode: 'fillThenStroke' });
-      y += (splitTexto.length * 8) + 12; // Espaçamento maior devido à fonte 14
+      y += (splitTexto.length * 8) + 12; 
     });
 
-    // 5. INFORMAÇÕES DE PAGAMENTO E PRAZOS
     if (y > 200) { doc.addPage(); y = 30; }
     
     doc.setFontSize(16); 
@@ -166,7 +163,6 @@ const formatBRL = (v: number) =>
 
     y += 18;
     
-    // Função auxiliar REFEITA para quebrar linha e evitar cortes do texto
     const infoComSublinhadoSeguro = (titulo: string, texto: string, posY: number) => {
       doc.setFontSize(14);
       doc.setFont("Montserrat", "bold");
@@ -178,8 +174,8 @@ const formatBRL = (v: number) =>
       doc.line(14, posY + 1.5, 14 + w, posY + 1.5);
       
       doc.setFont("Montserrat", "normal");
-      doc.setLineWidth(0.1); // Deixa o texto encorpado e preto
-      const textoSplit = doc.splitTextToSize(texto, 180); // Usa a largura total da folha
+      doc.setLineWidth(0.1); 
+      const textoSplit = doc.splitTextToSize(texto, 180); 
       doc.text(textoSplit, 14, posY + 7, { renderingMode: 'fillThenStroke' });
       
       return 10 + (textoSplit.length * 8);
@@ -189,13 +185,11 @@ const formatBRL = (v: number) =>
     y += infoComSublinhadoSeguro("PRAZO DE ENTREGA:", "10 dias úteis.", y) + 4;
     y += infoComSublinhadoSeguro("CHAVE PIX:", "293956360001-61 Jeisel Almeida Rodrigues de Melo", y);
 
-    // 6. OBSERVAÇÕES
     y += 14;
-    doc.setFont("Montserrat", "bold"); // Colocado em negrito para não passar despercebido
+    doc.setFont("Montserrat", "bold"); 
     doc.text("*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.", 14, y, { maxWidth: 180, renderingMode: 'fillThenStroke' });
 
-    // 7. RODAPÉ FIXO
-    doc.setFontSize(11); // Aumentei um pouco o rodapé também
+    doc.setFontSize(11); 
     doc.setFont("Montserrat", "bold");
     doc.setTextColor(50, 50, 50);
     doc.setLineWidth(0);
@@ -210,7 +204,7 @@ const formatBRL = (v: number) =>
   };
 
   // =========================================================================
-  // FUNÇÃO ORIGINAL: GERAR PDF INTERNO (Com Tabela de Cálculos e Matemática)
+  // FUNÇÃO: GERAR PDF INTERNO
   // =========================================================================
   const gerarPdfInterno = (p: any) => {
     const doc = new jsPDF();
@@ -313,11 +307,7 @@ const formatBRL = (v: number) =>
     setIsPdfModalOpen(false); 
   };
 
-  async function updateStatus(id: number, newStatus: string) {
-    const { error } = await supabase.from('pedidos').update({ status: newStatus }).eq('id', id);
-    if (!error) setPedidos(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
-  }
-
+  // --- FUNÇÕES DE EXCLUSÃO (ÚNICA E EM MASSA) ---
   const executeDelete = async () => {
     if (!idToDelete) return;
     const { error } = await supabase.from('pedidos').delete().eq('id', idToDelete);
@@ -325,7 +315,34 @@ const formatBRL = (v: number) =>
     setIsDeleteModalOpen(false);
   };
 
-  // --- NOVA FUNÇÃO: CARREGAR PARA EDIÇÃO ---
+  const executeBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const { error } = await supabase.from('pedidos').delete().in('id', selectedIds);
+    if (!error) {
+      setPedidos(pedidos.filter(p => !selectedIds.includes(p.id)));
+      setIsSelectMode(false);
+      setSelectedIds([]);
+      setIsBulkDeleteModalOpen(false);
+    }
+  };
+
+  const toggleRowSelection = (id: number) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === pedidosProcessados.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(pedidosProcessados.map(p => p.id));
+    }
+  };
+
+  async function updateStatus(id: number, newStatus: string) {
+    const { error } = await supabase.from('pedidos').update({ status: newStatus }).eq('id', id);
+    if (!error) setPedidos(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
+  }
+
   const carregarParaEdicao = (pedido: any) => {
     localStorage.setItem('jeisel_edit_pedido', JSON.stringify(pedido));
     router.push('/');
@@ -340,7 +357,8 @@ const formatBRL = (v: number) =>
   const pedidosProcessados = useMemo(() => {
     let result = pedidos.filter(p => 
       p.cliente.toLowerCase().includes(search.toLowerCase()) || 
-      p.id.toString().includes(search)
+      p.id.toString().includes(search) ||
+      (p.vendedor && p.vendedor.toLowerCase().includes(search.toLowerCase()))
     );
     result.sort((a, b) => {
       const v1 = a[sortConfig.key];
@@ -351,6 +369,11 @@ const formatBRL = (v: number) =>
     });
     return result;
   }, [search, pedidos, sortConfig]);
+
+  // NOVO: Totalizador Dinâmico
+  const totalFiltrado = useMemo(() => {
+    return pedidosProcessados.reduce((acc, p) => acc + (p.total || 0), 0);
+  }, [pedidosProcessados]);
 
   if (loading) return <div className="p-10 text-center text-gray-400">Carregando...</div>;
 
@@ -363,53 +386,110 @@ const formatBRL = (v: number) =>
             onClick={exportarExcel}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 transition shadow-sm"
           >
-            <FileXls size={20} /> Exportar Excel
+            <FileXls size={20} /> Excel
           </button>
+          
+          {/* NOVO: Botão de Ativar Modo Seleção (Admin) */}
+          {role === "ADMIN" && (
+            <button 
+              onClick={() => { setIsSelectMode(!isSelectMode); setSelectedIds([]); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm ${isSelectMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+            >
+              <ListChecks size={20} /> {isSelectMode ? 'Cancelar' : 'Selecionar'}
+            </button>
+          )}
+
+          {/* NOVO: Botão de Apagar em Massa (Aparece só se tiver algo selecionado) */}
+          {isSelectMode && selectedIds.length > 0 && (
+            <button 
+              onClick={() => setIsBulkDeleteModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition shadow-sm animate-in fade-in"
+            >
+              <Trash size={20} /> Apagar ({selectedIds.length})
+            </button>
+          )}
         </div>
         
-        <div className="relative w-full md:w-96">
-          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-          <input 
-            type="text" 
-            placeholder="Pesquisar..." 
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+          {/* NOVO: Dashboard / Totalizador */}
+          <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-right w-full md:w-auto">
+            <span className="block text-[10px] font-black text-emerald-600 uppercase tracking-wider">Total em Tela</span>
+            <span className="block text-lg font-black text-emerald-700 leading-none">{formatBRL(totalFiltrado)}</span>
+          </div>
+
+          <div className="relative w-full md:w-72">
+            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input 
+              type="text" 
+              placeholder="Pesquisar cliente..." 
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-        <span className="text-xs font-black text-gray-400 uppercase flex items-center px-2">Filtrar:</span>
+        <span className="text-xs font-black text-gray-400 uppercase flex items-center px-2">Filtrar por:</span>
+        <SortButton label="Data" active={sortConfig.key === 'created_at'} onClick={() => handleSort('created_at')} />
         <SortButton label="Código" active={sortConfig.key === 'id'} onClick={() => handleSort('id')} />
         <SortButton label="Nome" active={sortConfig.key === 'cliente'} onClick={() => handleSort('cliente')} />
         <SortButton label="Valor" active={sortConfig.key === 'total'} onClick={() => handleSort('total')} />
-        <SortButton label="Vendedor" active={sortConfig.key === 'vendedor'} onClick={() => handleSort('vendedor')} />
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
-        <table className="w-full text-left min-w-[700px]">
+        <table className="w-full text-left min-w-[800px]">
           <thead className="bg-gray-50/50 text-xs uppercase text-gray-400 font-black">
             <tr>
+              <th className={`transition-all duration-300 py-5 pl-5 ${isSelectMode ? 'w-14 opacity-100' : 'w-0 p-0 opacity-0 overflow-hidden'}`}>
+                <div className={`${isSelectMode ? 'block' : 'hidden'}`}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedIds.length === pedidosProcessados.length && pedidosProcessados.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </div>
+              </th>
               <th className="p-5">Cód</th>
+              <th className="p-5">Data</th>
               <th className="p-5">Status</th>
               <th className="p-5">Cliente</th>
-              {role === "ADMIN" && <th className="p-5">Vendedor</th>}
+              {role === "ADMIN" ? <th className="p-5">Vendedor</th> : null}
               <th className="p-5">Total</th>
               <th className="p-5 text-center">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {pedidosProcessados.map(p => (
-              <tr key={p.id} className="hover:bg-blue-50/20 transition-colors">
+              <tr 
+                key={p.id} 
+                className={`transition-colors cursor-default ${selectedIds.includes(p.id) ? 'bg-indigo-50/50' : 'hover:bg-blue-50/20'}`}
+                onClick={() => { if (isSelectMode) toggleRowSelection(p.id); }}
+              >
+                <td className={`transition-all duration-300 py-5 pl-5 ${isSelectMode ? 'w-14 opacity-100' : 'w-0 p-0 opacity-0 overflow-hidden'}`}>
+                   <div className={`${isSelectMode ? 'block' : 'hidden'}`}>
+                     <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(p.id)}
+                        onChange={() => toggleRowSelection(p.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                   </div>
+                </td>
                 <td className="p-5 font-mono text-gray-400 text-xs">#{p.id}</td>
-                <td className="p-5">
+                <td className="p-5 text-sm font-medium text-gray-500 whitespace-nowrap">
+                  {new Date(p.created_at || p.data).toLocaleDateString('pt-BR')}
+                </td>
+                <td className="p-5" onClick={(e) => isSelectMode && e.stopPropagation()}>
                   <StatusDropdown status={p.status} onUpdate={(val) => updateStatus(p.id, val)} />
                 </td>
                 <td className="p-5 font-bold text-gray-800">{p.cliente}</td>
-                {role === "ADMIN" && <td className="p-5 text-xs text-blue-500 font-bold">{p.vendedor || 'Padrão'}</td>}
+                {role === "ADMIN" ? <td className="p-5 text-xs text-blue-500 font-bold">{p.vendedor || 'Padrão'}</td> : null}
                 <td className="p-5 font-black text-emerald-600">{formatBRL(p.total)}</td>
-                <td className="p-5">
+                <td className="p-5" onClick={(e) => isSelectMode && e.stopPropagation()}>
                   <div className="flex justify-center gap-2">
                     <button onClick={() => setSelectedPedido(p)} title="Ver Detalhes" className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all"><Eye size={18} /></button>
                     
@@ -417,9 +497,9 @@ const formatBRL = (v: number) =>
                     
                     <button onClick={() => carregarParaEdicao(p)} title="Editar Pedido" className="p-2 text-indigo-500 bg-indigo-50 hover:bg-indigo-500 hover:text-white rounded-lg transition-all"><PencilSimple size={18} /></button>
                     
-                    {role === "ADMIN" && (
+                    {role === "ADMIN" && !isSelectMode ? (
                       <button onClick={() => { setIdToDelete(p.id); setIsDeleteModalOpen(true); }} title="Excluir" className="p-2 text-red-400 bg-red-50 hover:bg-red-500 hover:text-white rounded-lg transition-all"><Trash size={18} /></button>
-                    )}
+                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -428,7 +508,7 @@ const formatBRL = (v: number) =>
         </table>
       </div>
 
-      {/* NOVO MODAL: ESCOLHA DE PDF (Design Premium) */}
+      {/* MODAL DE ESCOLHA DE PDF (Mantido) */}
       {isPdfModalOpen && pedidoParaPdf && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[70] p-4">
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl max-w-lg w-full relative animate-in zoom-in duration-200">
@@ -443,7 +523,6 @@ const formatBRL = (v: number) =>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Opção 1: Cliente */}
               <button 
                 onClick={() => gerarPdfCliente(pedidoParaPdf)}
                 className="flex flex-col items-center justify-center p-6 border-2 border-indigo-100 bg-indigo-50/30 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
@@ -453,7 +532,6 @@ const formatBRL = (v: number) =>
                 <span className="text-xs text-gray-500 mt-2 text-center">Modelo limpo com PIX para o cliente</span>
               </button>
 
-              {/* Opção 2: Interno/Orçador */}
               <button 
                 onClick={() => gerarPdfInterno(pedidoParaPdf)}
                 className="flex flex-col items-center justify-center p-6 border-2 border-amber-100 bg-amber-50/30 rounded-xl hover:border-amber-500 hover:bg-amber-50 transition-all group"
@@ -467,7 +545,7 @@ const formatBRL = (v: number) =>
         </div>
       )}
 
-      {/* MODAL DETALHES */}
+      {/* MODAL DETALHES (Mantido) */}
       {selectedPedido && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-200">
@@ -498,7 +576,7 @@ const formatBRL = (v: number) =>
         </div>
       )}
 
-      {/* MODAL DELETAR */}
+      {/* MODAL DELETAR ÚNICO */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[60] p-4">
           <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center space-y-4 animate-in zoom-in duration-200">
@@ -508,6 +586,23 @@ const formatBRL = (v: number) =>
             <div className="flex gap-3 pt-4">
               <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 transition-colors text-gray-600 rounded-xl font-bold">Cancelar</button>
               <button onClick={executeDelete} className="flex-1 py-3 bg-red-600 hover:bg-red-700 transition-colors text-white rounded-xl font-bold shadow-lg shadow-red-200">Sim, Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NOVO MODAL: DELETAR EM MASSA */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[60] p-4">
+          <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center space-y-4 animate-in zoom-in duration-200 border-t-8 border-red-600">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+              <CheckSquareOffset size={32} weight="duotone" />
+            </div>
+            <h2 className="text-2xl font-black text-gray-800">Atenção!</h2>
+            <p className="text-gray-500">Você está prestes a apagar <b>{selectedIds.length} pedidos</b>. Tem certeza que deseja limpar esses registros?</p>
+            <div className="flex gap-3 pt-4">
+              <button onClick={() => setIsBulkDeleteModalOpen(false)} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 transition-colors text-gray-600 rounded-xl font-bold">Cancelar</button>
+              <button onClick={executeBulkDelete} className="flex-1 py-3 bg-red-600 hover:bg-red-700 transition-colors text-white rounded-xl font-black shadow-lg shadow-red-200 uppercase text-sm">Apagar Tudo</button>
             </div>
           </div>
         </div>
