@@ -13,7 +13,8 @@ import {
   Wrench,
   Ruler,
   Info,
-  CheckCircle
+  CheckCircle,
+  PencilSimple // <-- NOVO ÍCONE ADICIONADO
 } from "@phosphor-icons/react";
 
 export default function GestorPrecos() {
@@ -30,6 +31,11 @@ export default function GestorPrecos() {
   const [novaCategoria, setNovaCategoria] = useState("tecido");
   const [novoPreco, setNovoPreco] = useState("");
   const [novoFator, setNovoFator] = useState("3");
+
+  // Estados para o Modal de Edição de Nome
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState<{id: string, nome: string} | null>(null);
+  const [editNome, setEditNome] = useState("");
 
   // Estados para Modais de Exclusão e Toast
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -73,6 +79,24 @@ export default function GestorPrecos() {
       showToast('Item cadastrado com sucesso!');
     } else {
       showToast("Erro ao salvar: " + error.message, 'error');
+    }
+  };
+
+  // FUNÇÃO PARA ATUALIZAR APENAS O NOME
+  const handleEditName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!itemToEdit) return;
+
+    const { error } = await supabase.from('materiais').update({ nome: editNome }).eq('id', itemToEdit.id);
+    
+    if (!error) {
+      setIsEditModalOpen(false);
+      setItemToEdit(null);
+      setEditNome("");
+      fetchData();
+      showToast('Nome atualizado com sucesso!');
+    } else {
+      showToast('Erro ao atualizar nome.', 'error');
     }
   };
 
@@ -174,17 +198,31 @@ export default function GestorPrecos() {
               return (
                 <div key={m.id} className="relative p-5 border border-gray-100 rounded-2xl hover:border-blue-200 hover:shadow-md transition-all group bg-gray-50/50">
                   
+                  {/* BOTOES DE AÇÃO: EDITAR E EXCLUIR */}
                   {!isProtegido && (
-                    <button 
-                      onClick={() => { setIdToDelete(m.id); setIsDeleteModalOpen(true); }}
-                      className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all bg-white p-1.5 rounded-md shadow-sm"
-                      title="Excluir item"
-                    >
-                      <Trash size={16} />
-                    </button>
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                      <button 
+                        onClick={() => { 
+                          setItemToEdit({ id: m.id, nome: m.nome }); 
+                          setEditNome(m.nome);
+                          setIsEditModalOpen(true); 
+                        }}
+                        className="bg-white p-1.5 rounded-md shadow-sm text-gray-300 hover:text-blue-600 transition-colors"
+                        title="Editar nome"
+                      >
+                        <PencilSimple size={16} weight="bold" />
+                      </button>
+                      <button 
+                        onClick={() => { setIdToDelete(m.id); setIsDeleteModalOpen(true); }}
+                        className="bg-white p-1.5 rounded-md shadow-sm text-gray-300 hover:text-red-500 transition-colors"
+                        title="Excluir item"
+                      >
+                        <Trash size={16} weight="bold" />
+                      </button>
+                    </div>
                   )}
 
-                  <div className="mb-4 pr-8">
+                  <div className="mb-4 pr-16">
                     <h3 className="font-bold text-gray-800 text-lg truncate" title={m.nome}>{m.nome}</h3>
                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md mt-1 inline-block border ${corTag}`}>
                       {m.categoria.replace('_', ' ')}
@@ -329,6 +367,36 @@ export default function GestorPrecos() {
 
               <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all">
                 Salvar no Banco
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL DE EDIÇÃO DE NOME --- */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-center z-50 p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+            <div className="p-6 bg-blue-600 text-white flex justify-between items-center">
+              <h2 className="text-xl font-black flex items-center gap-2"><PencilSimple size={24} weight="bold" /> Editar Nome</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="hover:bg-white/20 p-2 rounded-full transition"><X size={24}/></button>
+            </div>
+            
+            <form onSubmit={handleEditName} className="p-8 space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase">Novo Nome / Descrição</label>
+                <input 
+                  autoFocus
+                  type="text" 
+                  value={editNome} 
+                  onChange={(e) => setEditNome(e.target.value)}
+                  className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-600 font-bold"
+                  required
+                />
+              </div>
+
+              <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all">
+                Salvar Alteração
               </button>
             </form>
           </div>

@@ -78,10 +78,7 @@ const formatBRL = (v: number) =>
   }).format(Number(v));
 
 // =========================================================================
-  // NOVA FUNÇÃO: GERAR PDF DO CLIENTE (Design Fiel ao Documento Scheila)
-  // =========================================================================
-// =========================================================================
-  // NOVA FUNÇÃO: GERAR PDF DO CLIENTE (Design Fiel e Traço Engrossado)
+  // NOVA FUNÇÃO: GERAR PDF DO CLIENTE (Letra Grande, Grossa e Preta)
   // =========================================================================
   const gerarPdfCliente = async (p: any) => {
     const doc = new jsPDF();
@@ -112,94 +109,96 @@ const formatBRL = (v: number) =>
     doc.setTextColor(0, 0, 0);
     doc.setDrawColor(0, 0, 0);
 
-    // 2. IMAGEM DO HEADER (Ajustada para cobrir o topo)
+    // 2. IMAGEM DO HEADER
     try {
       doc.addImage('/logo.jpg', 'JPEG', 0, 0, 210, 42); 
     } catch (e) {
       console.error("Logo não encontrada.");
     }
 
-    // 3. TÍTULO "Orçamento" (BEM NEGRITO E MAIOR)
-    doc.setFontSize(18); // Aumentado de 14 para 18
+    // 3. TÍTULO "Orçamento"
+    doc.setFontSize(20); 
     doc.setFont("Montserrat", "bold");
-    doc.setLineWidth(0.15); // Engrossa o traço do título
+    doc.setLineWidth(0.2); // Bem grosso
     doc.text("Orçamento", 105, 58, { align: "center", renderingMode: 'fillThenStroke' });
 
     // 4. CORPO DO DOCUMENTO (Ambientes)
     let y = 75;
-    doc.setFontSize(12); // Aumentado de 11 para 12
+    doc.setFontSize(14); // Aumentado para 14 a pedido da loja
     
     p.itens?.forEach((item: any) => {
       if (y > 230) { doc.addPage(); y = 25; }
 
-      // Nome do Ambiente (Negrito com Stroke)
+      // Nome do Ambiente (Negrito com Stroke Forte)
       doc.setFont("Montserrat", "bold");
-      doc.setLineWidth(0.08); // Engrossa levemente o nome do ambiente
+      doc.setLineWidth(0.2); 
       const ambienteTexto = `${item.nome}:`;
       doc.text(ambienteTexto, 14, y, { renderingMode: 'fillThenStroke' });
       
-      // Linha sublinhada mais grossa
-      doc.setLineWidth(0.3);
+      // Linha sublinhada do ambiente
+      doc.setLineWidth(0.4);
       doc.line(14, y + 1.5, 14 + doc.getTextWidth(ambienteTexto), y + 1.5); 
-      y += 10;
+      y += 9;
       
-      // Descrição Técnica (Texto Normal mas bem preto)
+      // Descrição Técnica (Texto Normal engrossado com Stroke para ficar bem preto)
       doc.setFont("Montserrat", "normal");
-      doc.setLineWidth(0); // Reset stroke para texto comum não ficar ilegível
+      doc.setLineWidth(0.1); // Este comando engrossa a fonte normal na impressão
       const arrDesc = item.desc.split(' | '); 
       const modelo = arrDesc[0] || '';
       const tecido = arrDesc[1] || 'Sem tecido';
       const forro = arrDesc[2] || 'Sem forro';
       const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
 
-      const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor branco, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
+      const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
       
       const splitTexto = doc.splitTextToSize(textoCortina, 180);
-      doc.text(splitTexto, 14, y);
-      y += (splitTexto.length * 7) + 12; 
+      doc.text(splitTexto, 14, y, { renderingMode: 'fillThenStroke' });
+      y += (splitTexto.length * 8) + 12; // Espaçamento maior devido à fonte 14
     });
 
-    // 5. INFORMAÇÕES DE PAGAMENTO (NEGRITO E MAIOR)
+    // 5. INFORMAÇÕES DE PAGAMENTO E PRAZOS
     if (y > 200) { doc.addPage(); y = 30; }
     
-    doc.setFontSize(13); // Aumentado para destaque
+    doc.setFontSize(16); 
     doc.setFont("Montserrat", "bold");
-    doc.setLineWidth(0.12);
-    doc.text(`VALOR: ${formatBRL(p.total)}`, 14, y, { renderingMode: 'fillThenStroke' });
+    doc.setLineWidth(0.2);
+    doc.text(`VALOR TOTAL: ${formatBRL(p.total)}`, 14, y, { renderingMode: 'fillThenStroke' });
 
     y += 18;
     
-    doc.setFontSize(11);
-    // Função auxiliar atualizada para suportar negrito forte
-    const infoComSublinhado = (titulo: string, texto: string, posY: number) => {
+    // Função auxiliar REFEITA para quebrar linha e evitar cortes do texto
+    const infoComSublinhadoSeguro = (titulo: string, texto: string, posY: number) => {
+      doc.setFontSize(14);
       doc.setFont("Montserrat", "bold");
-      doc.setLineWidth(0.1);
+      doc.setLineWidth(0.2);
       doc.text(titulo, 14, posY, { renderingMode: 'fillThenStroke' });
       
       const w = doc.getTextWidth(titulo);
-      doc.setLineWidth(0.3);
+      doc.setLineWidth(0.4);
       doc.line(14, posY + 1.5, 14 + w, posY + 1.5);
       
       doc.setFont("Montserrat", "normal");
-      doc.setLineWidth(0);
-      const textoSplit = doc.splitTextToSize(` ${texto}`, 180 - w);
-      doc.text(textoSplit, 14 + w, posY);
-      return textoSplit.length * 7;
+      doc.setLineWidth(0.1); // Deixa o texto encorpado e preto
+      const textoSplit = doc.splitTextToSize(texto, 180); // Usa a largura total da folha
+      doc.text(textoSplit, 14, posY + 7, { renderingMode: 'fillThenStroke' });
+      
+      return 10 + (textoSplit.length * 8);
     };
 
-    y += infoComSublinhado("FORMAS DE PAGAMENTO:", "a prazo em até 10x sem juros ou à vista (30% de entrada e restante até o dia da instalação).", y) + 8;
-    y += infoComSublinhado("PRAZO DE ENTREGA:", "10 dias úteis.", y) + 8;
-    y += infoComSublinhado("CHAVE PIX:", "293956360001-61 Jeisel Almeida Rodrigues de Melo", y);
+    y += infoComSublinhadoSeguro("FORMAS DE PAGAMENTO:", "A prazo em até 10x sem juros ou à vista (30% de entrada e o restante até o dia da instalação).", y) + 4;
+    y += infoComSublinhadoSeguro("PRAZO DE ENTREGA:", "10 dias úteis.", y) + 4;
+    y += infoComSublinhadoSeguro("CHAVE PIX:", "293956360001-61 Jeisel Almeida Rodrigues de Melo", y);
 
     // 6. OBSERVAÇÕES
-    y += 18;
-    doc.setFont("Montserrat", "normal");
-    doc.text("*Observação: não trabalhamos aos sábados. Instalações", 14, y);
-    doc.text("aos sábados têm acréscimo de R$ 100,00.", 14, y + 6);
+    y += 14;
+    doc.setFont("Montserrat", "bold"); // Colocado em negrito para não passar despercebido
+    doc.text("*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.", 14, y, { maxWidth: 180, renderingMode: 'fillThenStroke' });
 
     // 7. RODAPÉ FIXO
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(11); // Aumentei um pouco o rodapé também
+    doc.setFont("Montserrat", "bold");
+    doc.setTextColor(50, 50, 50);
+    doc.setLineWidth(0);
     doc.text("WhatsApp: (27) 99316-3890 | Instagram: @cortinas.jc", 105, 275, { align: "center" });
     doc.text("Endereço: Rua Felicidade Siqueira, 198 - A Jardim Marilândia - Vila Velha - ES", 105, 281, { align: "center" });
     
@@ -209,6 +208,7 @@ const formatBRL = (v: number) =>
     doc.save(`JC_Cortinas_Orcamento_${p.cliente.replace(/\s+/g, '_')}.pdf`);
     setIsPdfModalOpen(false);
   };
+
   // =========================================================================
   // FUNÇÃO ORIGINAL: GERAR PDF INTERNO (Com Tabela de Cálculos e Matemática)
   // =========================================================================
@@ -310,7 +310,7 @@ const formatBRL = (v: number) =>
     doc.text(formatBRL(p.total), 190, finalY + 5, { align: "right" });
 
     doc.save(`Interno_Jeisel_${p.id}_${p.cliente.replace(/\s+/g, '_')}.pdf`);
-    setIsPdfModalOpen(false); // Fecha o modal após gerar
+    setIsPdfModalOpen(false); 
   };
 
   async function updateStatus(id: number, newStatus: string) {
@@ -387,7 +387,6 @@ const formatBRL = (v: number) =>
         <SortButton label="Vendedor" active={sortConfig.key === 'vendedor'} onClick={() => handleSort('vendedor')} />
       </div>
 
-      {/* ADICIONADO: overflow-x-auto para responsividade no celular */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
         <table className="w-full text-left min-w-[700px]">
           <thead className="bg-gray-50/50 text-xs uppercase text-gray-400 font-black">
@@ -414,7 +413,6 @@ const formatBRL = (v: number) =>
                   <div className="flex justify-center gap-2">
                     <button onClick={() => setSelectedPedido(p)} title="Ver Detalhes" className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all"><Eye size={18} /></button>
                     
-                    {/* BOTÃO DE PDF AGORA ABRE O MODAL */}
                     <button onClick={() => { setPedidoParaPdf(p); setIsPdfModalOpen(true); }} title="Gerar PDF" className="p-2 text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-600 hover:text-white transition-all"><FilePdf size={18} /></button>
                     
                     <button onClick={() => carregarParaEdicao(p)} title="Editar Pedido" className="p-2 text-indigo-500 bg-indigo-50 hover:bg-indigo-500 hover:text-white rounded-lg transition-all"><PencilSimple size={18} /></button>
