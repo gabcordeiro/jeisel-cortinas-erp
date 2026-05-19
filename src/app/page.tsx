@@ -22,6 +22,7 @@ export default function Orcamentos() {
   const [dbTecidos, setDbTecidos] = useState<any[]>([]);
   const [dbForros, setDbForros] = useState<any[]>([]);
   const [dbModelos, setDbModelos] = useState<any[]>([]);
+  const [dbFerragens, setDbFerragens] = useState<any[]>([]); // NOVO ESTADO
   const [dbTaxas, setDbTaxas] = useState<any>({});
   const [pricesLoaded, setPricesLoaded] = useState(false);
 
@@ -41,8 +42,8 @@ export default function Orcamentos() {
   const [modeloId, setModeloId] = useState("");
   const [tecidoId, setTecidoId] = useState("nenhum");
   const [forroId, setForroId] = useState("nenhum");
+  const [ferragemId, setFerragemId] = useState("nenhum"); // ALTERADO AQUI
   const [servicoId, setServicoId] = useState("padrao"); // Mantido para compatibilidade das taxas
-  const [ferragemPreco, setFerragemPreco] = useState(0);
 
   // --- BUSCA PREÇOS NO BANCO ---
   useEffect(() => {
@@ -54,6 +55,9 @@ export default function Orcamentos() {
         setDbTecidos([{ id: 'nenhum', nome: 'Sem Tecido', preco: 0 }, ...mats.filter(m => m.categoria === 'tecido')]);
         setDbForros([{ id: 'nenhum', nome: 'Sem Forro', preco: 0 }, ...mats.filter(m => m.categoria === 'forro')]);
         
+        // PUXANDO AS FERRAGENS DO BANCO
+        setDbFerragens([{ id: 'nenhum', nome: 'Cliente já possui trilho/varão', preco: 0 }, ...mats.filter(m => m.categoria === 'ferragem')]);
+
         const modelosBanco = mats.filter(m => m.categoria === 'modelo');
         setDbModelos(modelosBanco);
         if (modelosBanco.length > 0) setModeloId(modelosBanco[0].id);
@@ -80,27 +84,6 @@ export default function Orcamentos() {
     }
   }, []);
 
-  // --- CÁLCULO DE FERRAGENS ---
-  const ferragensOptions = useMemo(() => {
-    let options = [{ id: 'nenhum', nome: 'Cliente já possui trilho/varão', preco: 0 }];
-    const temTecido = tecidoId !== 'nenhum';
-    const temForro = forroId !== 'nenhum';
-    
-    const modeloAtual = dbModelos.find(m => m.id === modeloId);
-    const isIlhos = modeloAtual?.nome.toLowerCase().includes('ilhós');
-
-    if (temTecido && temForro) {
-      options.push({ id: 't_var_sui', nome: 'TETO: Varão 28mm + Suíço', preco: 69.13 });
-      options.push({ id: 't_2sui', nome: 'TETO: 2 Trilhos Suíços', preco: 25.86 });
-      options.push({ id: 'p_var_luxo', nome: `PAREDE: Varão + Luxo ${isIlhos ? '(Ilhós)' : ''}`, preco: isIlhos ? 145.92 : 106.32 });
-    } else {
-      options.push({ id: 't_var', nome: 'TETO: Varão 28mm', preco: 56.20 });
-      options.push({ id: 't_sui', nome: 'TETO: Trilho Suíço', preco: 12.93 });
-      options.push({ id: 'p_var', nome: 'PAREDE: Varão 28mm', preco: 79.56 });
-    }
-    return options;
-  }, [modeloId, tecidoId, forroId, dbModelos]);
-
   // --- ADICIONAR ITEM ---
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,28 +101,23 @@ export default function Orcamentos() {
 
     let detalhes = [];
     
-// 1. Cálculo Tecido (Cálculo Focado no METRO LINEAR, não mais em m)
+    // 1. Cálculo Tecido (Cálculo Focado no METRO LINEAR)
     let custoTec = 0;
     if (tecObj.id !== 'nenhum') {
-      // Calculamos a metragem linear: Largura da Janela x Fator de Franzimento
       let metragemLinear = largNum * modObj.fator;
-      
-      // O CUSTO agora é apenas a metragem linear x o preço do tecido
       custoTec = metragemLinear * tecObj.preco;
-      
-      // A área total (m) a gente ainda calcula só para mostrar a informação, mas não entra no dinheiro
       let areaTec = metragemLinear * consumoAltura;
 
       detalhes.push({ 
         tipo: 'Tecido', 
         icon: <Palette size={20} className="text-blue-500" />, 
         nome: tecObj.nome, 
-        equacao: `Linear: (${largNum}m × ${modObj.fator}) = ${metragemLinear.toFixed(2)}m (${formatBRL(custoTec)}) | Área Total: ${areaTec.toFixed(2)}m`, 
+        equacao: `Linear: (${largNum}m × ${modObj.fator}) = ${metragemLinear.toFixed(2)}m (${formatBRL(custoTec)}) | Área Total: ${areaTec.toFixed(2)}m²`, 
         valor: custoTec 
       });
     }
 
-   // 2. Cálculo Forro (Cálculo Focado no METRO LINEAR)
+    // 2. Cálculo Forro (Cálculo Focado no METRO LINEAR)
     let custoFor = 0;
     if (forObj.id !== 'nenhum') {
       let metragemLinearForro = 0;
@@ -147,19 +125,16 @@ export default function Orcamentos() {
       let eqForro = "";
       
       if (forObj.tipo_bk) {
-        // Se for Blackout
         metragemLinearForro = calcularConsumoBK(largNum);
         areaForro = metragemLinearForro * consumoAltura;
-        eqForro = `Linear BK: ${metragemLinearForro.toFixed(2)}m | Área Total: ${areaForro.toFixed(2)}m`;
+        eqForro = `Linear BK: ${metragemLinearForro.toFixed(2)}m | Área Total: ${areaForro.toFixed(2)}m²`;
       } else {
-        // Forro comum
         let fatorForro = forObj.fator || 1;
         metragemLinearForro = largNum * fatorForro;
         areaForro = metragemLinearForro * consumoAltura;
-        eqForro = `Linear: (${largNum}m × ${fatorForro}) = ${metragemLinearForro.toFixed(2)}m | Área Total: ${areaForro.toFixed(2)}m`;
+        eqForro = `Linear: (${largNum}m × ${fatorForro}) = ${metragemLinearForro.toFixed(2)}m | Área Total: ${areaForro.toFixed(2)}m²`;
       }
       
-      // O CUSTO agora é apenas a metragem linear x o preço do forro
       custoFor = metragemLinearForro * forObj.preco;
 
       detalhes.push({ 
@@ -181,10 +156,19 @@ export default function Orcamentos() {
       valor: custoCst 
     });
 
-    // 4. Cálculo Ferragem
-    let custoFer = servicoId !== 'nenhum' ? (largNum * ferragemPreco) : 0;
-    if (custoFer > 0) {
-      detalhes.push({ tipo: 'Ferragem', icon: <Wrench size={20} className="text-gray-500" />, nome: "Suporte/Trilho", equacao: `${largNum}m × ${formatBRL(ferragemPreco)}/m`, valor: custoFer });
+    // 4. Cálculo Ferragem (Agora dinâmico do Banco)
+    let custoFer = 0;
+    const ferObj = dbFerragens.find(f => f.id === ferragemId);
+    
+    if (ferObj && ferObj.id !== 'nenhum') {
+      custoFer = largNum * ferObj.preco;
+      detalhes.push({ 
+        tipo: 'Ferragem', 
+        icon: <Wrench size={20} className="text-gray-500" />, 
+        nome: ferObj.nome, 
+        equacao: `${largNum}m × R$ ${ferObj.preco.toFixed(2).replace('.', ',')}/m`, 
+        valor: custoFer 
+      });
     }
 
     const newItem = {
@@ -196,7 +180,7 @@ export default function Orcamentos() {
       tecidoId: tecObj.id,
       forroId: forObj.id,
       modeloId: modObj.id,
-      ferragemPreco: ferragemPreco
+      ferragemId: ferObj ? ferObj.id : 'nenhum' // ALTERADO AQUI
     };
 
     if (editingCartItemId) {
@@ -219,7 +203,8 @@ export default function Orcamentos() {
     if (item.tecidoId) setTecidoId(item.tecidoId);
     if (item.forroId) setForroId(item.forroId);
     if (item.modeloId) setModeloId(item.modeloId);
-    if (item.ferragemPreco !== undefined) setFerragemPreco(item.ferragemPreco);
+    if (item.ferragemId) setFerragemId(item.ferragemId); // ALTERADO AQUI
+    else setFerragemId('nenhum'); // Caso o item antigo usasse "ferragemPreco"
 
     setEditingCartItemId(item.id);
   };
@@ -407,9 +392,9 @@ export default function Orcamentos() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Tipo de Ferragem</label>
-                    <select value={ferragemPreco} onChange={(e)=>setFerragemPreco(Number(e.target.value))} className="w-full p-2.5 border rounded-md bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none transition">
-                      {ferragensOptions.map(f => (
-                        <option key={f.id} value={f.preco}>
+                    <select value={ferragemId} onChange={(e)=>setFerragemId(e.target.value)} className="w-full p-2.5 border rounded-md bg-gray-50 focus:bg-white focus:border-indigo-500 outline-none transition">
+                      {dbFerragens.map(f => (
+                        <option key={f.id} value={f.id}>
                           {f.nome} {f.preco > 0 ? `(R$ ${f.preco.toFixed(2).replace('.', ',')}/m)` : ''}
                         </option>
                       ))}
