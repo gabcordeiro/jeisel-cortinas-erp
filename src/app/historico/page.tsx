@@ -86,9 +86,16 @@ export default function Historico() {
   // =========================================================================
   // FUNÇÃO: GERAR PDF DO CLIENTE
   // =========================================================================
+// =========================================================================
+  // NOVA FUNÇÃO: GERAR PDF DO CLIENTE (Estilo "Bruna" - 10% Desc e Subtotais)
+  // =========================================================================
+// =========================================================================
+  // FUNÇÃO CORRIGIDA: GERAR PDF DO CLIENTE (Estilo Fiel "Bruna" sem embolar)
+  // =========================================================================
   const gerarPdfCliente = async (p: any) => {
     const doc = new jsPDF();
     
+    // 1. CARREGAR A FONTE MONTSERRAT
     try {
       const loadFont = async (path: string, name: string, weight: string) => {
         const res = await fetch(path);
@@ -110,26 +117,31 @@ export default function Historico() {
       doc.setFont('helvetica');
     }
 
+    // Configurações Globais de Cor (Preto Absoluto)
     doc.setTextColor(0, 0, 0);
     doc.setDrawColor(0, 0, 0);
 
+    // 2. IMAGEM DO HEADER
     try {
       doc.addImage('/logo.jpg', 'JPEG', 0, 0, 210, 42); 
     } catch (e) {
       console.error("Logo não encontrada.");
     }
 
+    // 3. TÍTULO "Orçamento"
     doc.setFontSize(20); 
     doc.setFont("Montserrat", "bold");
-    doc.setLineWidth(0.2); 
+    doc.setLineWidth(0.2);
     doc.text("Orçamento", 105, 58, { align: "center", renderingMode: 'fillThenStroke' });
 
+    // 4. CORPO DO DOCUMENTO (Ambientes)
     let y = 75;
     doc.setFontSize(14); 
     
     p.itens?.forEach((item: any) => {
-      if (y > 230) { doc.addPage(); y = 25; }
+      if (y > 210) { doc.addPage(); y = 25; }
 
+      // Nome do Ambiente
       doc.setFont("Montserrat", "bold");
       doc.setLineWidth(0.2); 
       const ambienteTexto = `${item.nome}:`;
@@ -139,6 +151,7 @@ export default function Historico() {
       doc.line(14, y + 1.5, 14 + doc.getTextWidth(ambienteTexto), y + 1.5); 
       y += 9;
       
+      // Descrição Técnica
       doc.setFont("Montserrat", "normal");
       doc.setLineWidth(0.1); 
       const arrDesc = item.desc.split(' | '); 
@@ -147,19 +160,35 @@ export default function Historico() {
       const forro = arrDesc[2] || 'Sem forro';
       const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
 
+      // Texto estruturado com as medidas pulando para a linha de baixo antes do valor
       const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
       
       const splitTexto = doc.splitTextToSize(textoCortina, 180);
       doc.text(splitTexto, 14, y, { renderingMode: 'fillThenStroke' });
-      y += (splitTexto.length * 8) + 12; 
+      
+      // Calcula o espaço que o texto da cortina ocupou
+      y += (splitTexto.length * 8) + 2; 
+
+      // === VALOR INDIVIDUAL DO AMBIENTE (Numa linha separada embaixo) ===
+      const valorAmbientePrazo = item.mat_cost || 0;
+      const valorAmbienteVista = valorAmbientePrazo * 0.9; 
+
+      doc.setFont("Montserrat", "bold");
+      doc.setLineWidth(0.2);
+      doc.text(`VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
+      
+      y += 16; // Margem de espaçamento para o próximo ambiente
     });
 
-    if (y > 200) { doc.addPage(); y = 30; }
+    // 5. VALOR TOTAL GERAL E INFORMAÇÕES DE PAGAMENTO
+    if (y > 190) { doc.addPage(); y = 30; }
     
     doc.setFontSize(16); 
     doc.setFont("Montserrat", "bold");
     doc.setLineWidth(0.2);
-    doc.text(`VALOR TOTAL: ${formatBRL(p.total)}`, 14, y, { renderingMode: 'fillThenStroke' });
+    const totalGeralPrazo = p.total || 0;
+    const totalGeralVista = totalGeralPrazo * 0.9;
+    doc.text(`VALOR TOTAL GERAL: ${formatBRL(totalGeralPrazo)} a prazo ou ${formatBRL(totalGeralVista)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
 
     y += 18;
     
@@ -181,7 +210,7 @@ export default function Historico() {
       return 10 + (textoSplit.length * 8);
     };
 
-    y += infoComSublinhadoSeguro("FORMAS DE PAGAMENTO:", "A prazo em até 10x sem juros ou à vista (30% de entrada e o restante até o dia da instalação).", y) + 4;
+    y += infoComSublinhadoSeguro("FORMAS DE PAGAMENTO:", "A prazo em até 10x sem juros ou à vista com 10% de desconto (30% de entrada e o restante até o dia da instalação).", y) + 4;
     y += infoComSublinhadoSeguro("PRAZO DE ENTREGA:", "10 dias úteis.", y) + 4;
     y += infoComSublinhadoSeguro("CHAVE PIX:", "293956360001-61 Jeisel Almeida Rodrigues de Melo", y);
 
@@ -189,6 +218,7 @@ export default function Historico() {
     doc.setFont("Montserrat", "bold"); 
     doc.text("*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.", 14, y, { maxWidth: 180, renderingMode: 'fillThenStroke' });
 
+    // 7. RODAPÉ FIXO
     doc.setFontSize(11); 
     doc.setFont("Montserrat", "bold");
     doc.setTextColor(50, 50, 50);
@@ -202,7 +232,6 @@ export default function Historico() {
     doc.save(`JC_Cortinas_Orcamento_${p.cliente.replace(/\s+/g, '_')}.pdf`);
     setIsPdfModalOpen(false);
   };
-
   // =========================================================================
   // FUNÇÃO: GERAR PDF INTERNO
   // =========================================================================
