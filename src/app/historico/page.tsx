@@ -92,10 +92,15 @@ export default function Historico() {
 // =========================================================================
   // FUNÇÃO CORRIGIDA: GERAR PDF DO CLIENTE (Estilo Fiel "Bruna" sem embolar)
   // =========================================================================
+// =========================================================================
+  // FUNÇÃO DEFINITIVA: GERAR PDF DO CLIENTE (Padrão "Tia Val" - Word)
+  // =========================================================================
   const gerarPdfCliente = async (p: any) => {
     const doc = new jsPDF();
     
-    // 1. CARREGAR A FONTE MONTSERRAT
+    // Aumenta o espaçamento entre as linhas globalmente (Pedido da Val - "Respiro")
+    doc.setLineHeightFactor(1.35); 
+    
     try {
       const loadFont = async (path: string, name: string, weight: string) => {
         const res = await fetch(path);
@@ -117,7 +122,6 @@ export default function Historico() {
       doc.setFont('helvetica');
     }
 
-    // Configurações Globais de Cor (Preto Absoluto)
     doc.setTextColor(0, 0, 0);
     doc.setDrawColor(0, 0, 0);
 
@@ -139,17 +143,15 @@ export default function Historico() {
     doc.setFontSize(14); 
     
     p.itens?.forEach((item: any) => {
-      if (y > 210) { doc.addPage(); y = 25; }
+      if (y > 220) { doc.addPage(); y = 25; }
 
-      // Nome do Ambiente
+      // Nome do Ambiente (Sem o sublinhado, para ficar igual ao Word)
       doc.setFont("Montserrat", "bold");
       doc.setLineWidth(0.2); 
       const ambienteTexto = `${item.nome}:`;
       doc.text(ambienteTexto, 14, y, { renderingMode: 'fillThenStroke' });
       
-      doc.setLineWidth(0.4);
-      doc.line(14, y + 1.5, 14 + doc.getTextWidth(ambienteTexto), y + 1.5); 
-      y += 9;
+      y += 8; // Pulo maior para descolar o título do texto
       
       // Descrição Técnica
       doc.setFont("Montserrat", "normal");
@@ -160,16 +162,15 @@ export default function Historico() {
       const forro = arrDesc[2] || 'Sem forro';
       const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
 
-      // Texto estruturado com as medidas pulando para a linha de baixo antes do valor
       const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
       
       const splitTexto = doc.splitTextToSize(textoCortina, 180);
       doc.text(splitTexto, 14, y, { renderingMode: 'fillThenStroke' });
       
-      // Calcula o espaço que o texto da cortina ocupou
-      y += (splitTexto.length * 8) + 2; 
+      // Calculando espaço com a nova altura de linha mais larga
+      y += (splitTexto.length * 7.5) + 4; 
 
-      // === VALOR INDIVIDUAL DO AMBIENTE (Numa linha separada embaixo) ===
+      // === VALOR INDIVIDUAL ===
       const valorAmbientePrazo = item.mat_cost || 0;
       const valorAmbienteVista = valorAmbientePrazo * 0.9; 
 
@@ -177,44 +178,36 @@ export default function Historico() {
       doc.setLineWidth(0.2);
       doc.text(`VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
       
-      y += 16; // Margem de espaçamento para o próximo ambiente
+      y += 18; // Respiro grande entre um ambiente e outro
     });
 
-    // 5. VALOR TOTAL GERAL E INFORMAÇÕES DE PAGAMENTO
-    if (y > 190) { doc.addPage(); y = 30; }
+    // 5. INFORMAÇÕES DE PAGAMENTO (Na mesma linha!)
+    if (y > 200) { doc.addPage(); y = 30; }
     
-    doc.setFontSize(16); 
-    doc.setFont("Montserrat", "bold");
-    doc.setLineWidth(0.2);
-    const totalGeralPrazo = p.total || 0;
-    const totalGeralVista = totalGeralPrazo * 0.9;
-    doc.text(`VALOR TOTAL GERAL: ${formatBRL(totalGeralPrazo)} a prazo ou ${formatBRL(totalGeralVista)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
-
-    y += 18;
-    
-    const infoComSublinhadoSeguro = (titulo: string, texto: string, posY: number) => {
+    // Função NOVA: Põe o título e o texto grudados na mesma linha e faz a quebra certa
+    const infoInline = (titulo: string, texto: string, posY: number) => {
       doc.setFontSize(14);
       doc.setFont("Montserrat", "bold");
       doc.setLineWidth(0.2);
       doc.text(titulo, 14, posY, { renderingMode: 'fillThenStroke' });
       
-      const w = doc.getTextWidth(titulo);
-      doc.setLineWidth(0.4);
-      doc.line(14, posY + 1.5, 14 + w, posY + 1.5);
+      const titleWidth = doc.getTextWidth(titulo + " "); // Mede o tamanho da palavra em negrito
       
       doc.setFont("Montserrat", "normal");
       doc.setLineWidth(0.1); 
-      const textoSplit = doc.splitTextToSize(texto, 180); 
-      doc.text(textoSplit, 14, posY + 7, { renderingMode: 'fillThenStroke' });
+      const maxWidth = 196 - (14 + titleWidth); // Calcula o espaço que sobrou na folha
+      const textoSplit = doc.splitTextToSize(texto, maxWidth); 
       
-      return 10 + (textoSplit.length * 8);
+      doc.text(textoSplit, 14 + titleWidth, posY, { renderingMode: 'fillThenStroke' });
+      
+      return (textoSplit.length * 7.5) + 6; // Retorna espaço ocupado + respiro
     };
 
-    y += infoComSublinhadoSeguro("FORMAS DE PAGAMENTO:", "A prazo em até 10x sem juros ou à vista com 10% de desconto (30% de entrada e o restante até o dia da instalação).", y) + 4;
-    y += infoComSublinhadoSeguro("PRAZO DE ENTREGA:", "10 dias úteis.", y) + 4;
-    y += infoComSublinhadoSeguro("CHAVE PIX:", "293956360001-61 Jeisel Almeida Rodrigues de Melo", y);
+    y += infoInline("FORMAS DE PAGAMENTO:", "a prazo em até 10x sem juros ou à vista com 10% de desconto (30% de entrada e restante até o dia da instalação).", y);
+    y += infoInline("PRAZO DE ENTREGA:", "10 dias úteis.", y);
+    y += infoInline("CHAVE PIX:", "293956360001-61 Jeisel Almeida Rodrigues de Melo", y);
 
-    y += 14;
+    y += 10;
     doc.setFont("Montserrat", "bold"); 
     doc.text("*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.", 14, y, { maxWidth: 180, renderingMode: 'fillThenStroke' });
 
