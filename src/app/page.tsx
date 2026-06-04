@@ -7,10 +7,78 @@ import { useRouter } from "next/navigation";
 
 // --- Funções Auxiliares de Cálculo ---
 function calcularConsumoBK(largura: number) {
-  if (largura <= 4.5) return largura + 0.90;
-  if (largura <= 6.0) return largura + 1.35;
-  const extraParts = Math.ceil((largura - 6.0) / 1.50);
-  return largura + 1.35 + (extraParts * 0.45);
+  if (largura <= 5.0) return largura + 0.90;
+  if (largura <= 6.0) return largura + 1.00;
+  return largura + 1.80; // Acima de 6 metros
+}
+
+function calcularConsumoWave(larguraMetros: number) {
+  const larguraParte = (larguraMetros + 0.40) / 2;
+  const ondasBruto = (larguraParte * 100) / 4.6;
+  let ondasPar = Math.round(ondasBruto);
+  
+  if (ondasPar % 2 !== 0) {
+    ondasPar += 1; 
+  }
+  
+  const tecidoOndasMetros = (ondasPar * 10.3) / 100;
+  const tecidoParteComBainha = tecidoOndasMetros + 0.30;
+  return tecidoParteComBainha * 2;
+}
+
+// NOVA FUNÇÃO MESTRE: Unifica todos os modelos (Wave, Pregas e Ilhós)
+function calcularMetragemPorModelo(larguraMetros: number, nomeModelo: string, fatorBanco: number) {
+  const nomeLower = nomeModelo.toLowerCase();
+  
+  // 1. Regra WAVE
+  if (nomeLower.includes('wave')) {
+    const metragem = calcularConsumoWave(larguraMetros);
+    const largParte = (larguraMetros + 0.40) / 2;
+    let ondas = Math.round((largParte * 100) / 4.6);
+    if (ondas % 2 !== 0) ondas += 1;
+    return { metragem, equacao: `Regra Wave: ${ondas} ondas/parte × 10.3cm + 30cm (Bainha) = ${metragem.toFixed(2)}m` };
+  } 
+  
+  // 2. Regra ILHÓS
+  if (nomeLower.includes('ilhós') || nomeLower.includes('ilhos')) {
+    const metragem = (larguraMetros * 3) + 0.40;
+    return { metragem, equacao: `Regra Ilhós: (${larguraMetros.toFixed(2)}m × 3) + 40cm (Bainha) = ${metragem.toFixed(2)}m` };
+  }
+  
+  // 3. Regra das PREGAS (Dupla, Americana, Macho, Única)
+  if (nomeLower.includes('dupla') || nomeLower.includes('americana') || nomeLower.includes('macho') || nomeLower.includes('única') || nomeLower.includes('unica')) {
+    let tamanhoPrega = 0.10;
+    let nomeRegra = "";
+    
+    // Identifica o Tamanho da Prega (TP)
+    if (nomeLower.includes('dupla')) { tamanhoPrega = 0.14; nomeRegra = "Pregas Duplas"; }
+    else if (nomeLower.includes('americana')) { tamanhoPrega = 0.16; nomeRegra = "Prega Americana"; }
+    else if (nomeLower.includes('macho')) { tamanhoPrega = 0.16; nomeRegra = "Prega Macho"; }
+    else if (nomeLower.includes('única') || nomeLower.includes('unica')) { tamanhoPrega = 0.08; nomeRegra = "Prega Única"; }
+
+    const parteBase = (larguraMetros + 0.20) / 2;
+    
+    // O Jeisel trunca a terceira casa decimal na calculadora (ex: 1.225 vira 1.22)
+    const parteBaseTruncada = Math.floor(parteBase * 100) / 100; 
+    
+    const qtdPregas = Math.floor(parteBase / 0.11);
+    const consumoPregas = qtdPregas * tamanhoPrega;
+    const tamanhoBanda = consumoPregas + parteBaseTruncada + 0.20; // 0.20 é a bainha
+    const metragem = tamanhoBanda * 2;
+    
+    return { 
+      metragem, 
+      equacao: `Regra ${nomeRegra}: ${qtdPregas} pregas/parte × ${tamanhoPrega * 100}cm = ${metragem.toFixed(2)}m` 
+    };
+  }
+
+  // 4. Regra Padrão (Fallback para o fator do banco caso seja um modelo liso ou não cadastrado)
+  const fatorFinal = fatorBanco || 1;
+  const metragem = larguraMetros * fatorFinal;
+  return { 
+    metragem, 
+    equacao: `Linear: (${larguraMetros.toFixed(2)}m × fator ${fatorFinal}) = ${metragem.toFixed(2)}m` 
+  };
 }
 
 const formatBRL = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
@@ -18,21 +86,18 @@ const formatBRL = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
 export default function Orcamentos() {
   const router = useRouter();
 
-  // Estados dos Dados Dinâmicos do Banco
   const [dbTecidos, setDbTecidos] = useState<any[]>([]);
   const [dbForros, setDbForros] = useState<any[]>([]);
   const [dbModelos, setDbModelos] = useState<any[]>([]);
-  const [dbFerragens, setDbFerragens] = useState<any[]>([]); // NOVO ESTADO
+  const [dbFerragens, setDbFerragens] = useState<any[]>([]);
   const [dbTaxas, setDbTaxas] = useState<any>({});
   const [pricesLoaded, setPricesLoaded] = useState(false);
 
-  // Estados do Formulário e Carrinho
   const [cliente, setCliente] = useState("");
   const [km, setKm] = useState<number | "">("");
   const [cart, setCart] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Estado de Edição
   const [editId, setEditId] = useState<number | null>(null);
   const [editingCartItemId, setEditingCartItemId] = useState<number | null>(null);
 
@@ -42,10 +107,9 @@ export default function Orcamentos() {
   const [modeloId, setModeloId] = useState("");
   const [tecidoId, setTecidoId] = useState("nenhum");
   const [forroId, setForroId] = useState("nenhum");
-  const [ferragemId, setFerragemId] = useState("nenhum"); // ALTERADO AQUI
-  const [servicoId, setServicoId] = useState("padrao"); // Mantido para compatibilidade das taxas
+  const [ferragemId, setFerragemId] = useState("nenhum");
+  const [servicoId, setServicoId] = useState("padrao"); 
 
-  // --- BUSCA PREÇOS NO BANCO ---
   useEffect(() => {
     async function loadPrices() {
       const { data: mats } = await supabase.from('materiais').select('*').order('nome');
@@ -54,8 +118,6 @@ export default function Orcamentos() {
       if (mats) {
         setDbTecidos([{ id: 'nenhum', nome: 'Sem Tecido', preco: 0 }, ...mats.filter(m => m.categoria === 'tecido')]);
         setDbForros([{ id: 'nenhum', nome: 'Sem Forro', preco: 0 }, ...mats.filter(m => m.categoria === 'forro')]);
-        
-        // PUXANDO AS FERRAGENS DO BANCO
         setDbFerragens([{ id: 'nenhum', nome: 'Cliente já possui trilho/varão', preco: 0 }, ...mats.filter(m => m.categoria === 'ferragem')]);
 
         const modelosBanco = mats.filter(m => m.categoria === 'modelo');
@@ -72,7 +134,6 @@ export default function Orcamentos() {
     loadPrices();
   }, []);
 
-  // --- CARREGA DADOS PARA EDIÇÃO ---
   useEffect(() => {
     const editData = localStorage.getItem('jeisel_edit_pedido');
     if (editData) {
@@ -84,7 +145,6 @@ export default function Orcamentos() {
     }
   }, []);
 
-  // --- ADICIONAR ITEM ---
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
     const largNum = parseFloat(largura);
@@ -101,23 +161,23 @@ export default function Orcamentos() {
 
     let detalhes = [];
     
-    // 1. Cálculo Tecido (Cálculo Focado no METRO LINEAR)
+    // 1. Cálculo Tecido (Usando a Função Mestre)
     let custoTec = 0;
     if (tecObj.id !== 'nenhum') {
-      let metragemLinear = largNum * modObj.fator;
-      custoTec = metragemLinear * tecObj.preco;
-      let areaTec = metragemLinear * consumoAltura;
+      const calcTecido = calcularMetragemPorModelo(largNum, modObj.nome, modObj.fator);
+      custoTec = calcTecido.metragem * tecObj.preco;
+      let areaTec = calcTecido.metragem * consumoAltura;
 
       detalhes.push({ 
         tipo: 'Tecido', 
         icon: <Palette size={20} className="text-blue-500" />, 
         nome: tecObj.nome, 
-        equacao: `Linear: (${largNum}m × ${modObj.fator}) = ${metragemLinear.toFixed(2)}m (${formatBRL(custoTec)}) | Área Total: ${areaTec.toFixed(2)}m²`, 
+        equacao: `${calcTecido.equacao} | Área: ${areaTec.toFixed(2)}m²`, 
         valor: custoTec 
       });
     }
 
-    // 2. Cálculo Forro (Cálculo Focado no METRO LINEAR)
+    // 2. Cálculo Forro (Isolado e Inteligente)
     let custoFor = 0;
     if (forObj.id !== 'nenhum') {
       let metragemLinearForro = 0;
@@ -125,14 +185,20 @@ export default function Orcamentos() {
       let eqForro = "";
       
       if (forObj.tipo_bk) {
+        // Se for blackout, ignora o modelo e aplica a regra cravada
         metragemLinearForro = calcularConsumoBK(largNum);
         areaForro = metragemLinearForro * consumoAltura;
-        eqForro = `Linear BK: ${metragemLinearForro.toFixed(2)}m | Área Total: ${areaForro.toFixed(2)}m²`;
+        let adicionalBK = largNum <= 5.0 ? 0.90 : (largNum <= 6.0 ? 1.00 : 1.80);
+        eqForro = `Regra BK: ${largNum.toFixed(2)}m + ${adicionalBK.toFixed(2)}m (Bainha) = ${metragemLinearForro.toFixed(2)}m | Área: ${areaForro.toFixed(2)}m²`;
       } else {
-        let fatorForro = forObj.fator || 1;
-        metragemLinearForro = largNum * fatorForro;
+        // Se for forro comum, ele acompanha rigorosamente as pregas do tecido principal
+        const calcForro = calcularMetragemPorModelo(largNum, modObj.nome, forObj.fator);
+        metragemLinearForro = calcForro.metragem;
         areaForro = metragemLinearForro * consumoAltura;
-        eqForro = `Linear: (${largNum}m × ${fatorForro}) = ${metragemLinearForro.toFixed(2)}m | Área Total: ${areaForro.toFixed(2)}m²`;
+        
+        // Remove a duplicidade da palavra "Área" que já vem na função mestre, caso exista
+        const equacaoLimpa = calcForro.equacao.split('|')[0].trim();
+        eqForro = `Forro (${modObj.nome}): ${equacaoLimpa} | Área: ${areaForro.toFixed(2)}m²`;
       }
       
       custoFor = metragemLinearForro * forObj.preco;
@@ -146,7 +212,7 @@ export default function Orcamentos() {
       });
     }
 
-    // 3. Cálculo Confecção (Agora dinâmico do Banco)
+    // 3. Cálculo Confecção 
     let custoCst = modObj.preco * largNum;
     detalhes.push({ 
       tipo: 'Confecção', 
@@ -156,17 +222,21 @@ export default function Orcamentos() {
       valor: custoCst 
     });
 
-    // 4. Cálculo Ferragem (Agora dinâmico do Banco)
+    // 4. Cálculo Ferragem 
     let custoFer = 0;
     const ferObj = dbFerragens.find(f => f.id === ferragemId);
     
     if (ferObj && ferObj.id !== 'nenhum') {
       custoFer = largNum * ferObj.preco;
+      
+      const metragemTotalTrilhos = largNum * 2;
+      const precoUnitarioTrilho = ferObj.preco / 2;
+
       detalhes.push({ 
         tipo: 'Ferragem', 
         icon: <Wrench size={20} className="text-gray-500" />, 
-        nome: ferObj.nome, 
-        equacao: `${largNum}m × R$ ${ferObj.preco.toFixed(2).replace('.', ',')}/m`, 
+        nome: `${ferObj.nome} (2 Vias)`, 
+        equacao: `${metragemTotalTrilhos.toFixed(2)}m totais (${largNum.toFixed(2)}m x 2 trilhos) × ${formatBRL(precoUnitarioTrilho)}/m`, 
         valor: custoFer 
       });
     }
@@ -180,7 +250,7 @@ export default function Orcamentos() {
       tecidoId: tecObj.id,
       forroId: forObj.id,
       modeloId: modObj.id,
-      ferragemId: ferObj ? ferObj.id : 'nenhum' // ALTERADO AQUI
+      ferragemId: ferObj ? ferObj.id : 'nenhum'
     };
 
     if (editingCartItemId) {
@@ -203,8 +273,8 @@ export default function Orcamentos() {
     if (item.tecidoId) setTecidoId(item.tecidoId);
     if (item.forroId) setForroId(item.forroId);
     if (item.modeloId) setModeloId(item.modeloId);
-    if (item.ferragemId) setFerragemId(item.ferragemId); // ALTERADO AQUI
-    else setFerragemId('nenhum'); // Caso o item antigo usasse "ferragemPreco"
+    if (item.ferragemId) setFerragemId(item.ferragemId); 
+    else setFerragemId('nenhum'); 
 
     setEditingCartItemId(item.id);
   };
@@ -214,7 +284,6 @@ export default function Orcamentos() {
     setNomeAmbiente(""); setLargura(""); setAltura("");
   };
 
-  // --- TOTAIS GLOBAIS ---
   const totais = useMemo(() => {
     if (!pricesLoaded) return { mat: 0, inst: 0, desl: 0, total: 0, globalDetalhes: [] };
 
@@ -250,7 +319,6 @@ export default function Orcamentos() {
     return { mat: totalMat, inst: totalInst, desl: totalDesloc, total: totalMat + totalInst + totalDesloc, globalDetalhes, taxaMinimaAplicada };
   }, [cart, km, dbTaxas, pricesLoaded]);
 
-  // --- FINALIZAR PEDIDO ---
   const finalizarPedido = async () => {
     if (cart.length === 0) return alert("Adicione itens!");
     const { data: { user } } = await supabase.auth.getUser();
@@ -311,7 +379,6 @@ export default function Orcamentos() {
               </div>
             )}
 
-            {/* AREA DO CLIENTE COM LABELS UX/UI E RESPONSIVIDADE */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h3 className="text-lg font-semibold text-blue-600 mb-4 pb-2 border-b">Dados do Cliente</h3>
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_150px] gap-4">
@@ -339,7 +406,6 @@ export default function Orcamentos() {
               </div>
 
               <form onSubmit={handleAddItem} className="space-y-5">
-                {/* MEDIDAS RESPONSIVO */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Nome do Ambiente</label>
@@ -355,7 +421,6 @@ export default function Orcamentos() {
                   </div>
                 </div>
 
-                {/* MATERIAIS RESPONSIVO */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Escolha o Tecido</label>
