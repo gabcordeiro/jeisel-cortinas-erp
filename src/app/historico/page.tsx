@@ -95,17 +95,10 @@ export default function Historico() {
 // =========================================================================
   // FUNÇÃO DEFINITIVA: GERAR PDF DO CLIENTE (Padrão "Tia Val" - Word)
   // =========================================================================
-<<<<<<< Updated upstream
   const gerarPdfCliente = async (p: any) => {
     const doc = new jsPDF();
     
     // Aumenta o espaçamento entre as linhas globalmente (Pedido da Val - "Respiro")
-=======
-const gerarPdfCliente = async (p: any) => {
-    const doc = new jsPDF();
-    
-    // Aumenta o espaçamento entre as linhas globalmente (Respiro)
->>>>>>> Stashed changes
     doc.setLineHeightFactor(1.35); 
     
     try {
@@ -130,40 +123,7 @@ const gerarPdfCliente = async (p: any) => {
     }
 
     doc.setTextColor(0, 0, 0);
-    doc.setDrawColor(0, 0, 0); 
-
-    // ------------------------------------------------------------------------
-    // NOVA FUNÇÃO: Força o texto a ficar perfeitamente justificado (sem escada)
-    // ------------------------------------------------------------------------
-    const escreverTextoJustificado = (texto: string, x: number, startY: number, maxWidth: number) => {
-      const linhas = doc.splitTextToSize(texto, maxWidth);
-      let currentY = startY;
-
-      linhas.forEach((linha: string, index: number) => {
-        const isUltimaLinha = index === linhas.length - 1;
-        const palavras = linha.trim().split(/\s+/);
-        
-        // Se for a última linha ou tiver só uma palavra, não esticamos, alinhamos normal à esquerda
-        if (isUltimaLinha || palavras.length === 1) {
-          doc.text(linha, x, currentY, { renderingMode: 'fillThenStroke' });
-        } else {
-          // Calcula o espaço que sobrou e distribui igualmente entre as palavras
-          const larguraTotalPalavras = palavras.reduce((acc, palavra) => acc + doc.getTextWidth(palavra), 0);
-          const espacoParaDistribuir = maxWidth - larguraTotalPalavras;
-          const tamanhoEspaco = espacoParaDistribuir / (palavras.length - 1);
-          
-          let currentX = x;
-          palavras.forEach((palavra) => {
-            doc.text(palavra, currentX, currentY, { renderingMode: 'fillThenStroke' });
-            currentX += doc.getTextWidth(palavra) + tamanhoEspaco;
-          });
-        }
-        currentY += 7.5; // Pulo para a próxima linha
-      });
-
-      return (linhas.length * 7.5); // Retorna a altura total que o bloco ocupou
-    };
-    // ------------------------------------------------------------------------
+    doc.setDrawColor(0, 0, 0);
 
     // 2. IMAGEM DO HEADER
     try {
@@ -172,25 +132,19 @@ const gerarPdfCliente = async (p: any) => {
       console.error("Logo não encontrada.");
     }
 
-    // 3. TÍTULO "Orçamento" (Montserrat Normal)
-    doc.setFontSize(16); 
-    doc.setFont("Montserrat", "normal");
-    doc.setLineWidth(0.15); 
+    // 3. TÍTULO "Orçamento"
+    doc.setFontSize(20); 
+    doc.setFont("Montserrat", "bold");
+    doc.setLineWidth(0.2);
     doc.text("Orçamento", 105, 58, { align: "center", renderingMode: 'fillThenStroke' });
-    
-    const orcWidth = doc.getTextWidth("Orçamento");
-    doc.setLineWidth(0.3); // Linha do sublinhado
-    doc.line(105 - orcWidth / 2, 59, 105 + orcWidth / 2, 59);
 
     // 4. CORPO DO DOCUMENTO (Ambientes)
     let y = 75;
     doc.setFontSize(14); 
-    doc.setFont("Montserrat", "normal"); 
     
     p.itens?.forEach((item: any) => {
       if (y > 220) { doc.addPage(); y = 25; }
 
-<<<<<<< Updated upstream
       // Nome do Ambiente (Sem o sublinhado, para ficar igual ao Word)
       doc.setFont("Montserrat", "bold");
       doc.setLineWidth(0.2); 
@@ -198,51 +152,32 @@ const gerarPdfCliente = async (p: any) => {
       doc.text(ambienteTexto, 14, y, { renderingMode: 'fillThenStroke' });
       
       y += 8; // Pulo maior para descolar o título do texto
-=======
-      // Nome do Ambiente
-      doc.setLineWidth(0.1); 
-      const ambienteTexto = `${item.nome}:`;
-      doc.text(ambienteTexto, 14, y, { renderingMode: 'fillThenStroke' });
-      
-      const ambWidth = doc.getTextWidth(ambienteTexto);
-      doc.setLineWidth(0.3); 
-      doc.line(14, y + 1, 14 + ambWidth, y + 1);
-      
-      // O "ENTER" após o nome do ambiente
-      y += 9; 
->>>>>>> Stashed changes
       
       // Descrição Técnica
+      doc.setFont("Montserrat", "normal");
+      doc.setLineWidth(0.1); 
       const arrDesc = item.desc.split(' | '); 
       const modelo = arrDesc[0] || '';
       const tecido = arrDesc[1] || 'Sem tecido';
       const forro = arrDesc[2] || 'Sem forro';
       const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
 
-<<<<<<< Updated upstream
       const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
-=======
-      const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}. Medidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
->>>>>>> Stashed changes
       
-      doc.setLineWidth(0.1);
+      const splitTexto = doc.splitTextToSize(textoCortina, 180);
+      doc.text(splitTexto, 14, y, { renderingMode: 'fillThenStroke' });
       
-<<<<<<< Updated upstream
       // Calculando espaço com a nova altura de linha mais larga
       y += (splitTexto.length * 7.5) + 4; 
-=======
-      // APLICAÇÃO DA NOVA FUNÇÃO JUSTIFICADA
-      const espacoOcupadoDescricao = escreverTextoJustificado(textoCortina, 14, y, 180);
-      y += espacoOcupadoDescricao + 4; 
->>>>>>> Stashed changes
 
       // === VALOR INDIVIDUAL ===
       const valorAmbientePrazo = item.mat_cost || 0;
       const valorAmbienteVista = valorAmbientePrazo * 0.9; 
 
+      doc.setFont("Montserrat", "bold");
+      doc.setLineWidth(0.2);
       doc.text(`VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
       
-<<<<<<< Updated upstream
       y += 18; // Respiro grande entre um ambiente e outro
     });
 
@@ -275,61 +210,14 @@ const gerarPdfCliente = async (p: any) => {
     y += 10;
     doc.setFont("Montserrat", "bold"); 
     doc.text("*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.", 14, y, { maxWidth: 180, renderingMode: 'fillThenStroke' });
-=======
-      y += 18; 
-    });
-
-    // 5. INFORMAÇÕES DE PAGAMENTO
-    if (y > 200) { doc.addPage(); y = 30; }
-    
-    doc.setLineWidth(0.1); 
-    const textoPagamento = "FORMAS DE PAGAMENTO: a prazo em até 10x sem juros ou à vista com 10% de desconto (30% de entrada e restante até o dia da instalação).";
-    
-    // APLICAÇÃO DA NOVA FUNÇÃO JUSTIFICADA NAS FORMAS DE PAGAMENTO
-    const espacoOcupadoPagamento = escreverTextoJustificado(textoPagamento, 14, y, 180);
-    
-    // Sublinhado garantido apenas no título
-    const pgtoTitleWidth = doc.getTextWidth("FORMAS DE PAGAMENTO:");
-    doc.setLineWidth(0.3); 
-    doc.line(14, y + 1, 14 + pgtoTitleWidth, y + 1); 
-    
-    y += espacoOcupadoPagamento + 6;
-
-    // --- PRAZO DE ENTREGA ---
-    const textoPrazo = "PRAZO DE ENTREGA: 10 dias úteis.";
-    doc.setLineWidth(0.1);
-    doc.text(textoPrazo, 14, y, { maxWidth: 180, renderingMode: 'fillThenStroke' });
-    
-    const prazoTitleWidth = doc.getTextWidth("PRAZO DE ENTREGA:");
-    doc.setLineWidth(0.3); 
-    doc.line(14, y + 1, 14 + prazoTitleWidth, y + 1);
-    
-    y += 12;
-
-    // --- CHAVE PIX ---
-    const textoPix = "CHAVE PIX: 293956360001-61 Jeisel Almeida Rodrigues de Melo";
-    doc.setLineWidth(0.1);
-    doc.text(textoPix, 14, y, { maxWidth: 180, renderingMode: 'fillThenStroke' });
-    
-    const pixTitleWidth = doc.getTextWidth("CHAVE PIX:");
-    doc.setLineWidth(0.3); 
-    doc.line(14, y + 1, 14 + pixTitleWidth, y + 1);
-    
-    y += 12;
-
-    // --- OBSERVAÇÃO ---
-    const textoObs = "*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.";
-    doc.setLineWidth(0.1);
-    
-    // APLICAÇÃO DA NOVA FUNÇÃO JUSTIFICADA NA OBSERVAÇÃO
-    escreverTextoJustificado(textoObs, 14, y, 180);
->>>>>>> Stashed changes
 
     // 7. RODAPÉ FIXO
     doc.setFontSize(11); 
-    doc.setTextColor(50, 50, 50); 
-    doc.text("WhatsApp: (27) 99316-3890 | Instagram: @cortinas.jc", 105, 275, { align: "center", renderingMode: 'fillThenStroke' });
-    doc.text("Endereço: Rua Felicidade Siqueira, 198 - A Jardim Marilândia - Vila Velha - ES", 105, 281, { align: "center", renderingMode: 'fillThenStroke' });
+    doc.setFont("Montserrat", "bold");
+    doc.setTextColor(50, 50, 50);
+    doc.setLineWidth(0);
+    doc.text("WhatsApp: (27) 99316-3890 | Instagram: @cortinas.jc", 105, 275, { align: "center" });
+    doc.text("Endereço: Rua Felicidade Siqueira, 198 - A Jardim Marilândia - Vila Velha - ES", 105, 281, { align: "center" });
     
     doc.setFillColor(220, 224, 212);
     doc.rect(0, 286, 210, 11, 'F');
@@ -337,7 +225,8 @@ const gerarPdfCliente = async (p: any) => {
     doc.save(`JC_Cortinas_Orcamento_${p.cliente.replace(/\s+/g, '_')}.pdf`);
     setIsPdfModalOpen(false);
   };
-
+  // =========================================================================
+  // FUNÇÃO: GERAR PDF INTERNO
   // =========================================================================
   const gerarPdfInterno = (p: any) => {
     const doc = new jsPDF();
