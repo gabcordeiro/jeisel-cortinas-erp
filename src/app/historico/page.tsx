@@ -5,14 +5,15 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
   Trash, MagnifyingGlass, Eye, X, Ruler, MathOperations, 
-  CheckCircle, Clock, Prohibit, FilePdf, FileWord,
+  CheckCircle, Clock, Prohibit, FilePdf, FileDoc,
   CaretDown, Warning, FileXls, PencilSimple, User, Wrench,
   ListChecks, CheckSquareOffset
 } from "@phosphor-icons/react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx"; 
-import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, HeadingLevel } from "docx";
+// IMPORTANTE: Adicionado o ImageRun aqui
+import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, HeadingLevel, ImageRun } from "docx";
 
 export default function Historico() {
   
@@ -85,7 +86,7 @@ export default function Historico() {
     }).format(Number(v));
 
   // =========================================================================
-  // FUNÇÕES DE PDF (Mantidas intactas do seu código original)
+  // FUNÇÕES DE PDF
   // =========================================================================
   const gerarPdfCliente = async (p: any) => {
     const doc = new jsPDF();
@@ -321,6 +322,35 @@ export default function Historico() {
   const gerarDocxCliente = async (p: any) => {
     const childrenElements: any[] = [];
 
+    // Tenta buscar a logo.jpg da pasta public
+    let logoBuffer: ArrayBuffer | null = null;
+    try {
+      const response = await fetch('/logo.jpg');
+      if (response.ok) {
+        logoBuffer = await response.arrayBuffer();
+      }
+    } catch (e) {
+      console.warn("Logo não encontrada para o DOCX.");
+    }
+
+    // Se a logo for encontrada, injeta ela no Word mantendo as proporções do PDF (210x42 ~ 5:1)
+    if (logoBuffer) {
+      childrenElements.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new ImageRun({
+              data: logoBuffer,
+              transformation: {
+                width: 700, // Largura padrão em pixels para o documento
+                height: 140, // Proporção da altura
+              },
+            }),
+          ],
+        })
+      );
+    }
+
     // Título
     childrenElements.push(
       new Paragraph({
@@ -443,7 +473,7 @@ export default function Historico() {
         children: [
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Item / Serviço", bold: true })] })] }),
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Descrição Técnica", bold: true })] })] }),
-          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Valor", bold: true })] })] }),
+          new TableCell({ children: [new Paragraph({ text: "Valor", bold: true })] }),
         ],
       })
     );
@@ -737,7 +767,7 @@ export default function Historico() {
                     onClick={() => gerarDocxCliente(pedidoParaPdf)}
                     className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white text-sm py-2.5 rounded-lg font-bold hover:bg-blue-700 transition"
                   >
-                    <FileWord size={18} /> Word
+                    <FileDoc size={18} /> Word
                   </button>
                 </div>
               </div>
@@ -759,7 +789,7 @@ export default function Historico() {
                     onClick={() => gerarDocxInterno(pedidoParaPdf)}
                     className="flex-1 flex items-center justify-center gap-2 bg-orange-600 text-white text-sm py-2.5 rounded-lg font-bold hover:bg-orange-700 transition"
                   >
-                    <FileWord size={18} /> Word
+                    <FileDoc size={18} /> Word
                   </button>
                 </div>
               </div>
