@@ -5,13 +5,14 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
   Trash, MagnifyingGlass, Eye, X, Ruler, MathOperations, 
-  CheckCircle, Clock, Prohibit, FilePdf, 
+  CheckCircle, Clock, Prohibit, FilePdf, FileWord,
   CaretDown, Warning, FileXls, PencilSimple, User, Wrench,
-  ListChecks, CheckSquareOffset // <-- Novos ícones para seleção
+  ListChecks, CheckSquareOffset
 } from "@phosphor-icons/react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx"; 
+import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, HeadingLevel } from "docx";
 
 export default function Historico() {
   
@@ -26,11 +27,11 @@ export default function Historico() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [idToDelete, setIdToDelete] = useState<number | null>(null);
   
-  // Estado para o Modal de Escolha de PDF
+  // Estado para o Modal de Escolha de PDF/DOCX
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [pedidoParaPdf, setPedidoParaPdf] = useState<any>(null);
 
-  // === NOVOS ESTADOS: EXCLUSÃO EM MASSA ===
+  // === EXCLUSÃO EM MASSA ===
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
@@ -84,21 +85,10 @@ export default function Historico() {
     }).format(Number(v));
 
   // =========================================================================
-  // FUNÇÃO: GERAR PDF DO CLIENTE
-  // =========================================================================
-// =========================================================================
-  // NOVA FUNÇÃO: GERAR PDF DO CLIENTE (Estilo "Bruna" - 10% Desc e Subtotais)
-  // =========================================================================
-// =========================================================================
-  // FUNÇÃO CORRIGIDA: GERAR PDF DO CLIENTE (Estilo Fiel "Bruna" sem embolar)
-  // =========================================================================
-// =========================================================================
-  // FUNÇÃO DEFINITIVA: GERAR PDF DO CLIENTE (Padrão "Tia Val" - Word)
+  // FUNÇÕES DE PDF (Mantidas intactas do seu código original)
   // =========================================================================
   const gerarPdfCliente = async (p: any) => {
     const doc = new jsPDF();
-    
-    // Aumenta o espaçamento entre as linhas globalmente (Pedido da Val - "Respiro")
     doc.setLineHeightFactor(1.35); 
     
     try {
@@ -125,35 +115,26 @@ export default function Historico() {
     doc.setTextColor(0, 0, 0);
     doc.setDrawColor(0, 0, 0);
 
-    // 2. IMAGEM DO HEADER
-    try {
-      doc.addImage('/logo.jpg', 'JPEG', 0, 0, 210, 42); 
-    } catch (e) {
-      console.error("Logo não encontrada.");
-    }
+    try { doc.addImage('/logo.jpg', 'JPEG', 0, 0, 210, 42); } catch (e) { console.error("Logo não encontrada."); }
 
-    // 3. TÍTULO "Orçamento"
     doc.setFontSize(20); 
     doc.setFont("Montserrat", "bold");
     doc.setLineWidth(0.2);
     doc.text("Orçamento", 105, 58, { align: "center", renderingMode: 'fillThenStroke' });
 
-    // 4. CORPO DO DOCUMENTO (Ambientes)
     let y = 75;
     doc.setFontSize(14); 
     
     p.itens?.forEach((item: any) => {
       if (y > 220) { doc.addPage(); y = 25; }
 
-      // Nome do Ambiente (Sem o sublinhado, para ficar igual ao Word)
       doc.setFont("Montserrat", "bold");
       doc.setLineWidth(0.2); 
       const ambienteTexto = `${item.nome}:`;
       doc.text(ambienteTexto, 14, y, { renderingMode: 'fillThenStroke' });
       
-      y += 8; // Pulo maior para descolar o título do texto
+      y += 8; 
       
-      // Descrição Técnica
       doc.setFont("Montserrat", "normal");
       doc.setLineWidth(0.1); 
       const arrDesc = item.desc.split(' | '); 
@@ -167,10 +148,8 @@ export default function Historico() {
       const splitTexto = doc.splitTextToSize(textoCortina, 180);
       doc.text(splitTexto, 14, y, { renderingMode: 'fillThenStroke' });
       
-      // Calculando espaço com a nova altura de linha mais larga
       y += (splitTexto.length * 7.5) + 4; 
 
-      // === VALOR INDIVIDUAL ===
       const valorAmbientePrazo = item.mat_cost || 0;
       const valorAmbienteVista = valorAmbientePrazo * 0.9; 
 
@@ -178,29 +157,27 @@ export default function Historico() {
       doc.setLineWidth(0.2);
       doc.text(`VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
       
-      y += 18; // Respiro grande entre um ambiente e outro
+      y += 18; 
     });
 
-    // 5. INFORMAÇÕES DE PAGAMENTO (Na mesma linha!)
     if (y > 200) { doc.addPage(); y = 30; }
     
-    // Função NOVA: Põe o título e o texto grudados na mesma linha e faz a quebra certa
     const infoInline = (titulo: string, texto: string, posY: number) => {
       doc.setFontSize(14);
       doc.setFont("Montserrat", "bold");
       doc.setLineWidth(0.2);
       doc.text(titulo, 14, posY, { renderingMode: 'fillThenStroke' });
       
-      const titleWidth = doc.getTextWidth(titulo + " "); // Mede o tamanho da palavra em negrito
+      const titleWidth = doc.getTextWidth(titulo + " "); 
       
       doc.setFont("Montserrat", "normal");
       doc.setLineWidth(0.1); 
-      const maxWidth = 196 - (14 + titleWidth); // Calcula o espaço que sobrou na folha
+      const maxWidth = 196 - (14 + titleWidth); 
       const textoSplit = doc.splitTextToSize(texto, maxWidth); 
       
       doc.text(textoSplit, 14 + titleWidth, posY, { renderingMode: 'fillThenStroke' });
       
-      return (textoSplit.length * 7.5) + 6; // Retorna espaço ocupado + respiro
+      return (textoSplit.length * 7.5) + 6; 
     };
 
     y += infoInline("FORMAS DE PAGAMENTO:", "a prazo em até 10x sem juros ou à vista com 10% de desconto (30% de entrada e restante até o dia da instalação).", y);
@@ -211,7 +188,6 @@ export default function Historico() {
     doc.setFont("Montserrat", "bold"); 
     doc.text("*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.", 14, y, { maxWidth: 180, renderingMode: 'fillThenStroke' });
 
-    // 7. RODAPÉ FIXO
     doc.setFontSize(11); 
     doc.setFont("Montserrat", "bold");
     doc.setTextColor(50, 50, 50);
@@ -225,9 +201,7 @@ export default function Historico() {
     doc.save(`JC_Cortinas_Orcamento_${p.cliente.replace(/\s+/g, '_')}.pdf`);
     setIsPdfModalOpen(false);
   };
-  // =========================================================================
-  // FUNÇÃO: GERAR PDF INTERNO
-  // =========================================================================
+
   const gerarPdfInterno = (p: any) => {
     const doc = new jsPDF();
     
@@ -329,7 +303,211 @@ export default function Historico() {
     setIsPdfModalOpen(false); 
   };
 
-  // --- FUNÇÕES DE EXCLUSÃO (ÚNICA E EM MASSA) ---
+  // =========================================================================
+  // NOVAS FUNÇÕES: GERAR DOCX (WORD)
+  // =========================================================================
+  
+  const downloadDocx = async (doc: Document, fileName: string) => {
+    const blob = await Packer.toBlob(doc);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    setIsPdfModalOpen(false);
+  };
+
+  const gerarDocxCliente = async (p: any) => {
+    const childrenElements: any[] = [];
+
+    // Título
+    childrenElements.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 400, after: 600 },
+        children: [new TextRun({ text: "Orçamento", bold: true, size: 36 })], // size em half-points (36 = 18pt)
+      })
+    );
+
+    // Iterando os ambientes
+    p.itens?.forEach((item: any) => {
+      const arrDesc = item.desc.split(' | '); 
+      const modelo = arrDesc[0] || '';
+      const tecido = arrDesc[1] || 'Sem tecido';
+      const forro = arrDesc[2] || 'Sem forro';
+      const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
+
+      const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
+      
+      const valorAmbientePrazo = item.mat_cost || 0;
+      const valorAmbienteVista = valorAmbientePrazo * 0.9; 
+
+      // Nome do Ambiente
+      childrenElements.push(
+        new Paragraph({
+          spacing: { before: 200, after: 100 },
+          children: [new TextRun({ text: `${item.nome}:`, bold: true, size: 28 })], // 28 = 14pt
+        })
+      );
+
+      // Texto Descritivo
+      childrenElements.push(
+        new Paragraph({
+          spacing: { after: 100 },
+          children: [new TextRun({ text: textoCortina, size: 28 })],
+        })
+      );
+
+      // Valor
+      childrenElements.push(
+        new Paragraph({
+          spacing: { after: 400 },
+          children: [new TextRun({ text: `VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`, bold: true, size: 28 })],
+        })
+      );
+    });
+
+    // Rodapé de Informações Financeiras
+    childrenElements.push(
+      new Paragraph({
+        spacing: { before: 400, after: 100 },
+        children: [
+          new TextRun({ text: "FORMAS DE PAGAMENTO: ", bold: true, size: 28 }),
+          new TextRun({ text: "a prazo em até 10x sem juros ou à vista com 10% de desconto (30% de entrada e restante até o dia da instalação).", size: 28 })
+        ],
+      }),
+      new Paragraph({
+        spacing: { after: 100 },
+        children: [
+          new TextRun({ text: "PRAZO DE ENTREGA: ", bold: true, size: 28 }),
+          new TextRun({ text: "10 dias úteis.", size: 28 })
+        ],
+      }),
+      new Paragraph({
+        spacing: { after: 200 },
+        children: [
+          new TextRun({ text: "CHAVE PIX: ", bold: true, size: 28 }),
+          new TextRun({ text: "293956360001-61 Jeisel Almeida Rodrigues de Melo", size: 28 })
+        ],
+      }),
+      new Paragraph({
+        spacing: { after: 400 },
+        children: [
+          new TextRun({ text: "*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.", bold: true, size: 28 })
+        ],
+      })
+    );
+
+    // Documento
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: childrenElements,
+      }]
+    });
+
+    downloadDocx(doc, `JC_Cortinas_Orcamento_${p.cliente.replace(/\s+/g, '_')}.docx`);
+  };
+
+  const gerarDocxInterno = async (p: any) => {
+    const childrenElements: any[] = [];
+
+    childrenElements.push(
+      new Paragraph({
+        children: [new TextRun({ text: "JC CORTINAS", bold: true, size: 40, color: "2563eb" })],
+      }),
+      new Paragraph({
+        spacing: { after: 400 },
+        children: [new TextRun({ text: "Orçamento Interno Analítico", size: 24, color: "6b7280" })],
+      }),
+      new Paragraph({
+        spacing: { after: 100 },
+        children: [new TextRun({ text: "DADOS DO CLIENTE", bold: true, size: 24 })],
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: `Nome: ${p.cliente}`, size: 24 })],
+      }),
+      new Paragraph({
+        spacing: { after: 300 },
+        children: [new TextRun({ text: `Data de Emissão: ${p.data}`, size: 24 })],
+      })
+    );
+
+    // Montando as linhas da tabela
+    const tableRows: TableRow[] = [];
+    
+    // Cabeçalho da Tabela
+    tableRows.push(
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Item / Serviço", bold: true })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Descrição Técnica", bold: true })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Valor", bold: true })] })] }),
+        ],
+      })
+    );
+
+    p.itens?.forEach((item: any, index: number) => {
+      // Linha do Ambiente
+      tableRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              columnSpan: 3,
+              children: [new Paragraph({ children: [new TextRun({ text: `AMBIENTE ${index + 1}: ${item.nome.toUpperCase()} (${item.largura}m x ${item.altura}m)`, bold: true })] })],
+            })
+          ],
+        })
+      );
+      
+      // Detalhes do ambiente
+      item.detalhes_array?.forEach((det: any) => {
+        tableRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph(det.tipo)] }),
+              new TableCell({ children: [new Paragraph(det.nome)] }),
+              new TableCell({ children: [new Paragraph(formatBRL(det.valor))] }),
+            ],
+          })
+        );
+      });
+
+      // Subtotal
+      tableRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ columnSpan: 2, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Subtotal do Ambiente:", italics: true })] })] }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: formatBRL(item.mat_cost), bold: true })] })] }),
+          ],
+        })
+      );
+    });
+
+    childrenElements.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: tableRows,
+      })
+    );
+
+    childrenElements.push(
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        spacing: { before: 400 },
+        children: [new TextRun({ text: `TOTAL GERAL: ${formatBRL(p.total)}`, bold: true, size: 32, color: "059669" })],
+      })
+    );
+
+    const doc = new Document({
+      sections: [{ properties: {}, children: childrenElements }]
+    });
+
+    downloadDocx(doc, `Interno_Jeisel_${p.id}_${p.cliente.replace(/\s+/g, '_')}.docx`);
+  };
+
+  // --- FUNÇÕES DE EXCLUSÃO ---
   const executeDelete = async () => {
     if (!idToDelete) return;
     const { error } = await supabase.from('pedidos').delete().eq('id', idToDelete);
@@ -392,7 +570,6 @@ export default function Historico() {
     return result;
   }, [search, pedidos, sortConfig]);
 
-  // NOVO: Totalizador Dinâmico
   const totalFiltrado = useMemo(() => {
     return pedidosProcessados.reduce((acc, p) => acc + (p.total || 0), 0);
   }, [pedidosProcessados]);
@@ -411,7 +588,6 @@ export default function Historico() {
             <FileXls size={20} /> Excel
           </button>
           
-          {/* NOVO: Botão de Ativar Modo Seleção (Admin) */}
           {role === "ADMIN" && (
             <button 
               onClick={() => { setIsSelectMode(!isSelectMode); setSelectedIds([]); }}
@@ -421,7 +597,6 @@ export default function Historico() {
             </button>
           )}
 
-          {/* NOVO: Botão de Apagar em Massa (Aparece só se tiver algo selecionado) */}
           {isSelectMode && selectedIds.length > 0 && (
             <button 
               onClick={() => setIsBulkDeleteModalOpen(true)}
@@ -433,7 +608,6 @@ export default function Historico() {
         </div>
         
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          {/* NOVO: Dashboard / Totalizador */}
           <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-right w-full md:w-auto">
             <span className="block text-[10px] font-black text-emerald-600 uppercase tracking-wider">Total em Tela</span>
             <span className="block text-lg font-black text-emerald-700 leading-none">{formatBRL(totalFiltrado)}</span>
@@ -515,7 +689,7 @@ export default function Historico() {
                   <div className="flex justify-center gap-2">
                     <button onClick={() => setSelectedPedido(p)} title="Ver Detalhes" className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all"><Eye size={18} /></button>
                     
-                    <button onClick={() => { setPedidoParaPdf(p); setIsPdfModalOpen(true); }} title="Gerar PDF" className="p-2 text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-600 hover:text-white transition-all"><FilePdf size={18} /></button>
+                    <button onClick={() => { setPedidoParaPdf(p); setIsPdfModalOpen(true); }} title="Baixar Orçamento" className="p-2 text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-600 hover:text-white transition-all"><FilePdf size={18} /></button>
                     
                     <button onClick={() => carregarParaEdicao(p)} title="Editar Pedido" className="p-2 text-indigo-500 bg-indigo-50 hover:bg-indigo-500 hover:text-white rounded-lg transition-all"><PencilSimple size={18} /></button>
                     
@@ -530,38 +704,66 @@ export default function Historico() {
         </table>
       </div>
 
-      {/* MODAL DE ESCOLHA DE PDF (Mantido) */}
+      {/* MODAL DE ESCOLHA DE PDF E WORD REESTRUTURADO */}
       {isPdfModalOpen && pedidoParaPdf && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[70] p-4">
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl max-w-lg w-full relative animate-in zoom-in duration-200">
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl max-w-2xl w-full relative animate-in zoom-in duration-200">
             <button onClick={() => setIsPdfModalOpen(false)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 bg-gray-50 rounded-full transition-colors"><X size={20} weight="bold" /></button>
             
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
+              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
                 <FilePdf size={32} weight="duotone" />
               </div>
-              <h2 className="text-2xl font-black text-gray-800">Gerar Orçamento</h2>
-              <p className="text-gray-500 text-sm mt-1">Qual formato de PDF você deseja baixar?</p>
+              <h2 className="text-2xl font-black text-gray-800">Baixar Orçamento</h2>
+              <p className="text-gray-500 text-sm mt-1">Escolha o formato que deseja baixar (PDF ou Word Editável)</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button 
-                onClick={() => gerarPdfCliente(pedidoParaPdf)}
-                className="flex flex-col items-center justify-center p-6 border-2 border-indigo-100 bg-indigo-50/30 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
-              >
-                <User size={32} className="text-indigo-500 mb-3 group-hover:scale-110 transition-transform" weight="duotone" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* CARD: Via do Cliente */}
+              <div className="flex flex-col items-center p-6 border-2 border-indigo-100 bg-indigo-50/30 rounded-xl hover:border-indigo-300 transition-all">
+                <User size={32} className="text-indigo-500 mb-3" weight="duotone" />
                 <span className="font-bold text-gray-800 text-lg">Via do Cliente</span>
-                <span className="text-xs text-gray-500 mt-2 text-center">Modelo limpo com PIX para o cliente</span>
-              </button>
+                <span className="text-xs text-gray-500 mt-2 text-center mb-5">Modelo limpo com PIX para enviar ao cliente.</span>
+                
+                <div className="flex w-full gap-2 mt-auto">
+                  <button 
+                    onClick={() => gerarPdfCliente(pedidoParaPdf)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white text-sm py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition"
+                  >
+                    <FilePdf size={18} /> PDF
+                  </button>
+                  <button 
+                    onClick={() => gerarDocxCliente(pedidoParaPdf)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white text-sm py-2.5 rounded-lg font-bold hover:bg-blue-700 transition"
+                  >
+                    <FileWord size={18} /> Word
+                  </button>
+                </div>
+              </div>
 
-              <button 
-                onClick={() => gerarPdfInterno(pedidoParaPdf)}
-                className="flex flex-col items-center justify-center p-6 border-2 border-amber-100 bg-amber-50/30 rounded-xl hover:border-amber-500 hover:bg-amber-50 transition-all group"
-              >
-                <Wrench size={32} className="text-amber-500 mb-3 group-hover:scale-110 transition-transform" weight="duotone" />
+              {/* CARD: Via do Orçador */}
+              <div className="flex flex-col items-center p-6 border-2 border-amber-100 bg-amber-50/30 rounded-xl hover:border-amber-300 transition-all">
+                <Wrench size={32} className="text-amber-500 mb-3" weight="duotone" />
                 <span className="font-bold text-gray-800 text-lg">Via do Orçador</span>
-                <span className="text-xs text-gray-500 mt-2 text-center">Tabela completa com memória de cálculo</span>
-              </button>
+                <span className="text-xs text-gray-500 mt-2 text-center mb-5">Tabela completa com a memória de cálculo.</span>
+                
+                <div className="flex w-full gap-2 mt-auto">
+                  <button 
+                    onClick={() => gerarPdfInterno(pedidoParaPdf)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-amber-600 text-white text-sm py-2.5 rounded-lg font-bold hover:bg-amber-700 transition"
+                  >
+                    <FilePdf size={18} /> PDF
+                  </button>
+                  <button 
+                    onClick={() => gerarDocxInterno(pedidoParaPdf)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-orange-600 text-white text-sm py-2.5 rounded-lg font-bold hover:bg-orange-700 transition"
+                  >
+                    <FileWord size={18} /> Word
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
