@@ -468,13 +468,13 @@ export default function Historico() {
     // Montando as linhas da tabela
     const tableRows: TableRow[] = [];
     
-    // Cabeçalho da Tabela
+// Cabeçalho da Tabela
     tableRows.push(
       new TableRow({
         children: [
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Item / Serviço", bold: true })] })] }),
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Descrição Técnica", bold: true })] })] }),
-          new TableCell({ children: [new Paragraph({ text: "Valor", bold: true })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Valor", bold: true })] })] }), // <-- AGORA ESTÁ CORRIGIDO
         ],
       })
     );
