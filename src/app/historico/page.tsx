@@ -345,6 +345,7 @@ export default function Historico() {
                 width: 700, // Largura padrão em pixels para o documento
                 height: 140, // Proporção da altura
               },
+              type: "jpg", // <-- ESSA É A LINHA QUE CORRIGE O ERRO DO VERCEL
             }),
           ],
         })
