@@ -123,61 +123,51 @@ export default function Historico() {
     doc.setLineWidth(0.2);
     doc.text("Orçamento", 105, 58, { align: "center", renderingMode: 'fillThenStroke' });
 
+    // Instalação distribuída proporcionalmente entre os ambientes
+    const matSumPdfCliente = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
+    const instDeslPdfCliente = (p.total || 0) - matSumPdfCliente;
+    const totalVistaPdfCliente = (p.total || 0) * 0.9;
+
     let y = 75;
-    doc.setFontSize(14); 
-    
+    doc.setFontSize(14);
+
     p.itens?.forEach((item: any) => {
       if (y > 220) { doc.addPage(); y = 25; }
 
       doc.setFont("Montserrat", "bold");
-      doc.setLineWidth(0.2); 
+      doc.setLineWidth(0.2);
       const ambienteTexto = `${item.nome}:`;
       doc.text(ambienteTexto, 14, y, { renderingMode: 'fillThenStroke' });
-      
-      y += 8; 
-      
+
+      y += 8;
+
       doc.setFont("Montserrat", "normal");
-      doc.setLineWidth(0.1); 
-      const arrDesc = item.desc.split(' | '); 
+      doc.setLineWidth(0.1);
+      const arrDesc = item.desc.split(' | ');
       const modelo = arrDesc[0] || '';
       const tecido = arrDesc[1] || 'Sem tecido';
       const forro = arrDesc[2] || 'Sem forro';
       const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
 
       const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
-      
+
       const splitTexto = doc.splitTextToSize(textoCortina, 180);
       doc.text(splitTexto, 14, y, { renderingMode: 'fillThenStroke' });
-      
-      y += (splitTexto.length * 7.5) + 4; 
 
-      const valorAmbientePrazo = item.mat_cost || 0;
-      const valorAmbienteVista = valorAmbientePrazo * 0.9; 
+      y += (splitTexto.length * 7.5) + 4;
+
+      const proporcao = matSumPdfCliente > 0 ? (item.mat_cost || 0) / matSumPdfCliente : 0;
+      const valorAmbientePrazo = (item.mat_cost || 0) + (instDeslPdfCliente * proporcao);
+      const valorAmbienteVista = valorAmbientePrazo * 0.9;
 
       doc.setFont("Montserrat", "bold");
       doc.setLineWidth(0.2);
       doc.text(`VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
-      
-      y += 18; 
+
+      y += 18;
     });
 
-    // Instalação, deslocamento e total
-    const matSumPdfCliente = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
-    const instDeslPdfCliente = (p.total || 0) - matSumPdfCliente;
-    const totalVistaPdfCliente = (p.total || 0) * 0.9;
-
-    if (y > 200) { doc.addPage(); y = 30; }
-
-    if (instDeslPdfCliente > 0.01) {
-      if (y > 260) { doc.addPage(); y = 30; }
-      doc.setFontSize(14);
-      doc.setFont("Montserrat", "bold");
-      doc.setLineWidth(0.2);
-      doc.text(`INSTALAÇÃO E DESLOCAMENTO: ${formatBRL(instDeslPdfCliente)}`, 14, y, { renderingMode: 'fillThenStroke' });
-      y += 10;
-    }
-
-    if (y > 260) { doc.addPage(); y = 30; }
+    if (y > 240) { doc.addPage(); y = 30; }
     doc.setFontSize(14);
     doc.setFont("Montserrat", "bold");
     doc.setLineWidth(0.2);
@@ -401,18 +391,24 @@ export default function Historico() {
       })
     );
 
+    // Instalação distribuída proporcionalmente entre os ambientes
+    const matSumDocxCliente = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
+    const instDeslDocxCliente = (p.total || 0) - matSumDocxCliente;
+    const totalVistaDocxCliente = (p.total || 0) * 0.9;
+
     // Iterando os ambientes
     p.itens?.forEach((item: any) => {
-      const arrDesc = item.desc.split(' | '); 
+      const arrDesc = item.desc.split(' | ');
       const modelo = arrDesc[0] || '';
       const tecido = arrDesc[1] || 'Sem tecido';
       const forro = arrDesc[2] || 'Sem forro';
       const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
 
       const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
-      
-      const valorAmbientePrazo = item.mat_cost || 0;
-      const valorAmbienteVista = valorAmbientePrazo * 0.9; 
+
+      const proporcao = matSumDocxCliente > 0 ? (item.mat_cost || 0) / matSumDocxCliente : 0;
+      const valorAmbientePrazo = (item.mat_cost || 0) + (instDeslDocxCliente * proporcao);
+      const valorAmbienteVista = valorAmbientePrazo * 0.9;
 
       // Nome do Ambiente
       childrenElements.push(
@@ -438,20 +434,6 @@ export default function Historico() {
         })
       );
     });
-
-    // Instalação, deslocamento e total
-    const matSumDocxCliente = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
-    const instDeslDocxCliente = (p.total || 0) - matSumDocxCliente;
-    const totalVistaDocxCliente = (p.total || 0) * 0.9;
-
-    if (instDeslDocxCliente > 0.01) {
-      childrenElements.push(
-        new Paragraph({
-          spacing: { before: 100, after: 100 },
-          children: [new TextRun({ text: `INSTALAÇÃO E DESLOCAMENTO: ${formatBRL(instDeslDocxCliente)}`, bold: true, size: 28 })],
-        })
-      );
-    }
 
     childrenElements.push(
       new Paragraph({
