@@ -161,8 +161,29 @@ export default function Historico() {
       y += 18; 
     });
 
+    // Instalação, deslocamento e total
+    const matSumPdfCliente = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
+    const instDeslPdfCliente = (p.total || 0) - matSumPdfCliente;
+    const totalVistaPdfCliente = (p.total || 0) * 0.9;
+
     if (y > 200) { doc.addPage(); y = 30; }
-    
+
+    if (instDeslPdfCliente > 0.01) {
+      if (y > 260) { doc.addPage(); y = 30; }
+      doc.setFontSize(14);
+      doc.setFont("Montserrat", "bold");
+      doc.setLineWidth(0.2);
+      doc.text(`INSTALAÇÃO E DESLOCAMENTO: ${formatBRL(instDeslPdfCliente)}`, 14, y, { renderingMode: 'fillThenStroke' });
+      y += 10;
+    }
+
+    if (y > 260) { doc.addPage(); y = 30; }
+    doc.setFontSize(14);
+    doc.setFont("Montserrat", "bold");
+    doc.setLineWidth(0.2);
+    doc.text(`VALOR TOTAL: ${formatBRL(p.total)} a prazo ou ${formatBRL(totalVistaPdfCliente)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
+    y += 18;
+
     const infoInline = (titulo: string, texto: string, posY: number) => {
       doc.setFontSize(14);
       doc.setFont("Montserrat", "bold");
@@ -417,6 +438,27 @@ export default function Historico() {
         })
       );
     });
+
+    // Instalação, deslocamento e total
+    const matSumDocxCliente = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
+    const instDeslDocxCliente = (p.total || 0) - matSumDocxCliente;
+    const totalVistaDocxCliente = (p.total || 0) * 0.9;
+
+    if (instDeslDocxCliente > 0.01) {
+      childrenElements.push(
+        new Paragraph({
+          spacing: { before: 100, after: 100 },
+          children: [new TextRun({ text: `INSTALAÇÃO E DESLOCAMENTO: ${formatBRL(instDeslDocxCliente)}`, bold: true, size: 28 })],
+        })
+      );
+    }
+
+    childrenElements.push(
+      new Paragraph({
+        spacing: { after: 400 },
+        children: [new TextRun({ text: `VALOR TOTAL: ${formatBRL(p.total)} a prazo ou ${formatBRL(totalVistaDocxCliente)} à vista.`, bold: true, size: 28 })],
+      })
+    );
 
     // Rodapé de Informações Financeiras
     childrenElements.push(
