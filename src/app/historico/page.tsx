@@ -257,18 +257,37 @@ export default function Historico() {
       ]);
     });
 
-    if (p.totais_data?.globalDetalhes?.length > 0) {
+    const matSumPdf = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
+    const instDeslFallback = (p.total || 0) - matSumPdf;
+    const temInstPdf = p.totais_data?.taxaMinimaAplicada
+      ? (p.totais_data.inst > 0 || p.totais_data.desl > 0)
+      : (p.totais_data?.globalDetalhes?.length > 0 || instDeslFallback > 0.01);
+
+    if (temInstPdf) {
       tableBody.push([
-        { 
-          content: `MÃO DE OBRA E DESLOCAMENTO`, 
-          colSpan: 3, 
-          styles: { fillColor: [236, 253, 245], textColor: [5, 150, 105], fontStyle: 'bold' } 
+        {
+          content: `MÃO DE OBRA E DESLOCAMENTO`,
+          colSpan: 3,
+          styles: { fillColor: [236, 253, 245], textColor: [5, 150, 105], fontStyle: 'bold' }
         }
       ]);
 
-      p.totais_data.globalDetalhes.forEach((serv: any) => {
-        tableBody.push([serv.nome, serv.desc || 'Serviço Adicional', formatBRL(serv.valor)]);
-      });
+      if (p.totais_data?.taxaMinimaAplicada) {
+        if (p.totais_data.inst > 0) {
+          tableBody.push(['Instalação (Mínimo Residencial)', 'Taxa mínima residencial', formatBRL(p.totais_data.inst)]);
+        }
+        p.totais_data.globalDetalhes
+          ?.filter((serv: any) => serv.nome === 'Deslocamento Extra')
+          .forEach((serv: any) => {
+            tableBody.push([serv.nome, serv.desc || 'Serviço Adicional', formatBRL(serv.valor)]);
+          });
+      } else if (p.totais_data?.globalDetalhes?.length > 0) {
+        p.totais_data.globalDetalhes.forEach((serv: any) => {
+          tableBody.push([serv.nome, serv.desc || 'Serviço Adicional', formatBRL(serv.valor)]);
+        });
+      } else {
+        tableBody.push(['Instalação e Deslocamento', '', formatBRL(instDeslFallback)]);
+      }
     }
 
     autoTable(doc, {
@@ -516,10 +535,14 @@ export default function Historico() {
       );
     });
 
-    // =================================================================
-    // CORREÇÃO: ADICIONADO O BLOCO DE INSTALAÇÃO (MÃO DE OBRA) NO DOCX
-    // =================================================================
-    if (p.totais_data?.globalDetalhes?.length > 0) {
+    // MÃO DE OBRA E DESLOCAMENTO (INSTALAÇÃO)
+    const matSumDocx = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
+    const instDeslDocxFallback = (p.total || 0) - matSumDocx;
+    const temInstDocx = p.totais_data?.taxaMinimaAplicada
+      ? (p.totais_data.inst > 0 || p.totais_data.desl > 0)
+      : (p.totais_data?.globalDetalhes?.length > 0 || instDeslDocxFallback > 0.01);
+
+    if (temInstDocx) {
       tableRows.push(
         new TableRow({
           children: [
@@ -531,17 +554,54 @@ export default function Historico() {
         })
       );
 
-      p.totais_data.globalDetalhes.forEach((serv: any) => {
+      if (p.totais_data?.taxaMinimaAplicada) {
+        if (p.totais_data.inst > 0) {
+          tableRows.push(
+            new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph("Instalação (Mínimo Residencial)")] }),
+                new TableCell({ children: [new Paragraph("Taxa mínima residencial")] }),
+                new TableCell({ children: [new Paragraph(formatBRL(p.totais_data.inst))] }),
+              ],
+            })
+          );
+        }
+        p.totais_data.globalDetalhes
+          ?.filter((serv: any) => serv.nome === 'Deslocamento Extra')
+          .forEach((serv: any) => {
+            tableRows.push(
+              new TableRow({
+                children: [
+                  new TableCell({ children: [new Paragraph(serv.nome)] }),
+                  new TableCell({ children: [new Paragraph(serv.desc || 'Serviço Adicional')] }),
+                  new TableCell({ children: [new Paragraph(formatBRL(serv.valor))] }),
+                ],
+              })
+            );
+          });
+      } else if (p.totais_data?.globalDetalhes?.length > 0) {
+        p.totais_data.globalDetalhes.forEach((serv: any) => {
+          tableRows.push(
+            new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph(serv.nome)] }),
+                new TableCell({ children: [new Paragraph(serv.desc || 'Serviço Adicional')] }),
+                new TableCell({ children: [new Paragraph(formatBRL(serv.valor))] }),
+              ],
+            })
+          );
+        });
+      } else {
         tableRows.push(
           new TableRow({
             children: [
-              new TableCell({ children: [new Paragraph(serv.nome)] }),
-              new TableCell({ children: [new Paragraph(serv.desc || 'Serviço Adicional')] }),
-              new TableCell({ children: [new Paragraph(formatBRL(serv.valor))] }),
+              new TableCell({ children: [new Paragraph("Instalação e Deslocamento")] }),
+              new TableCell({ children: [new Paragraph("")] }),
+              new TableCell({ children: [new Paragraph(formatBRL(instDeslDocxFallback))] }),
             ],
           })
         );
-      });
+      }
     }
 
     childrenElements.push(
