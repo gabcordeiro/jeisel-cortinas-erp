@@ -468,13 +468,13 @@ export default function Historico() {
     // Montando as linhas da tabela
     const tableRows: TableRow[] = [];
     
-// Cabeçalho da Tabela
+    // Cabeçalho da Tabela
     tableRows.push(
       new TableRow({
         children: [
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Item / Serviço", bold: true })] })] }),
           new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Descrição Técnica", bold: true })] })] }),
-          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Valor", bold: true })] })] }), // <-- AGORA ESTÁ CORRIGIDO
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Valor", bold: true })] })] }), // <-- CORRIGIDO AQUI
         ],
       })
     );
@@ -515,6 +515,34 @@ export default function Historico() {
         })
       );
     });
+
+    // =================================================================
+    // CORREÇÃO: ADICIONADO O BLOCO DE INSTALAÇÃO (MÃO DE OBRA) NO DOCX
+    // =================================================================
+    if (p.totais_data?.globalDetalhes?.length > 0) {
+      tableRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              columnSpan: 3,
+              children: [new Paragraph({ children: [new TextRun({ text: "MÃO DE OBRA E DESLOCAMENTO (INSTALAÇÃO)", bold: true, color: "059669" })] })],
+            })
+          ],
+        })
+      );
+
+      p.totais_data.globalDetalhes.forEach((serv: any) => {
+        tableRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph(serv.nome)] }),
+              new TableCell({ children: [new Paragraph(serv.desc || 'Serviço Adicional')] }),
+              new TableCell({ children: [new Paragraph(formatBRL(serv.valor))] }),
+            ],
+          })
+        );
+      });
+    }
 
     childrenElements.push(
       new Table({
