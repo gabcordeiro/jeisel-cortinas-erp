@@ -4,6 +4,7 @@ import "./globals.css";
 // IMPORTANTE: Importe o seu novo guardião e a Sidebar aqui
 import RouteGuard from "@/components/RouteGuard";
 import Sidebar from "@/components/Sidebar";
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,6 +28,7 @@ export default function RootLayout({
             {children}
           </main>
         </RouteGuard>
+        <Analytics />
       </body>
     </html>
   );
