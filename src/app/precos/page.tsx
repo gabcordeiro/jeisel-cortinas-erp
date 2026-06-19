@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { 
-  CurrencyDollar, 
-  FloppyDiskBack, 
-  Plus, 
+import {
+  CurrencyDollar,
+  FloppyDiskBack,
+  Plus,
   Trash,
   X,
   Palette,
@@ -14,7 +14,8 @@ import {
   Ruler,
   Info,
   CheckCircle,
-  PencilSimple // <-- NOVO ÍCONE ADICIONADO
+  PencilSimple,
+  Blinds
 } from "@phosphor-icons/react";
 
 export default function GestorPrecos() {
@@ -132,20 +133,36 @@ export default function GestorPrecos() {
   };
 
   const filterByTab = (cat: string) => {
-    if (activeTab === 'tecidos') return ['tecido', 'forro'].includes(cat);
-    if (activeTab === 'ferragens') return ['modelo', 'ferragem'].includes(cat);
-    if (activeTab === 'servicos') return ['servico_fixo', 'servico_metro'].includes(cat);
+    if (activeTab === 'tecidos')    return ['tecido', 'forro'].includes(cat);
+    if (activeTab === 'ferragens')  return ['modelo', 'ferragem'].includes(cat);
+    if (activeTab === 'servicos')   return ['servico_fixo', 'servico_metro'].includes(cat);
+    if (activeTab === 'persianas')  return cat.startsWith('persiana_');
     return false;
   };
 
   // MAPA DE CORES PARA AS CATEGORIAS
   const coresCategoria: any = {
-    tecido: 'bg-blue-100 text-blue-700 border-blue-200',
-    forro: 'bg-purple-100 text-purple-700 border-purple-200',
-    modelo: 'bg-amber-100 text-amber-700 border-amber-200',
-    ferragem: 'bg-slate-100 text-slate-700 border-slate-200',
-    servico_fixo: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    servico_metro: 'bg-teal-100 text-teal-700 border-teal-200',
+    tecido:              'bg-blue-100 text-blue-700 border-blue-200',
+    forro:               'bg-purple-100 text-purple-700 border-purple-200',
+    modelo:              'bg-amber-100 text-amber-700 border-amber-200',
+    ferragem:            'bg-slate-100 text-slate-700 border-slate-200',
+    servico_fixo:        'bg-emerald-100 text-emerald-700 border-emerald-200',
+    servico_metro:       'bg-teal-100 text-teal-700 border-teal-200',
+    persiana_rolo:       'bg-teal-100 text-teal-700 border-teal-200',
+    persiana_vertical:   'bg-cyan-100 text-cyan-700 border-cyan-200',
+    persiana_horizontal: 'bg-sky-100 text-sky-700 border-sky-200',
+    persiana_romana:     'bg-indigo-100 text-indigo-700 border-indigo-200',
+    persiana_painel:     'bg-violet-100 text-violet-700 border-violet-200',
+    persiana_acessorio:  'bg-pink-100 text-pink-700 border-pink-200',
+  };
+
+  const labelCategoria: any = {
+    persiana_rolo:       'Persiana Rolo',
+    persiana_vertical:   'Persiana Vertical',
+    persiana_horizontal: 'Persiana Horizontal',
+    persiana_romana:     'Persiana Romana',
+    persiana_painel:     'Persiana Painel',
+    persiana_acessorio:  'Acessório Persiana',
   };
 
   if (loading) return <div className="p-10 text-center text-gray-400">Sincronizando tabelas...</div>;
@@ -173,10 +190,11 @@ export default function GestorPrecos() {
 
       {/* Navegação de Abas */}
       <div className="flex overflow-x-auto gap-2 p-1 bg-gray-100 rounded-xl">
-        <TabButton active={activeTab === 'tecidos'} onClick={() => setActiveTab('tecidos')} icon={<Palette/>} label="Tecidos e Forros" />
-        <TabButton active={activeTab === 'ferragens'} onClick={() => setActiveTab('ferragens')} icon={<Ruler/>} label="Modelos e Ferragens" />
-        <TabButton active={activeTab === 'servicos'} onClick={() => setActiveTab('servicos')} icon={<Wrench/>} label="Serviços Dinâmicos" />
-        <TabButton active={activeTab === 'taxas'} onClick={() => setActiveTab('taxas')} icon={<Info/>} label="Taxas Globais" />
+        <TabButton active={activeTab === 'tecidos'}   onClick={() => setActiveTab('tecidos')}   icon={<Palette/>} label="Tecidos e Forros" />
+        <TabButton active={activeTab === 'ferragens'} onClick={() => setActiveTab('ferragens')} icon={<Ruler/>}   label="Modelos e Ferragens" />
+        <TabButton active={activeTab === 'servicos'}  onClick={() => setActiveTab('servicos')}  icon={<Wrench/>}  label="Serviços Dinâmicos" />
+        <TabButton active={activeTab === 'persianas'} onClick={() => setActiveTab('persianas')} icon={<Blinds/>}  label="Persianas" />
+        <TabButton active={activeTab === 'taxas'}     onClick={() => setActiveTab('taxas')}     icon={<Info/>}    label="Taxas Globais" />
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 min-h-[400px]">
@@ -225,7 +243,7 @@ export default function GestorPrecos() {
                   <div className="mb-4 pr-16">
                     <h3 className="font-bold text-gray-800 text-lg truncate" title={m.nome}>{m.nome}</h3>
                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md mt-1 inline-block border ${corTag}`}>
-                      {m.categoria.replace('_', ' ')}
+                      {labelCategoria[m.categoria] || m.categoria.replace('_', ' ')}
                     </span>
                   </div>
 
@@ -337,6 +355,14 @@ export default function GestorPrecos() {
                     <option value="ferragem">Ferragem</option>
                     <option value="servico_fixo">Serviço (Fixo)</option>
                     <option value="servico_metro">Serviço (por Metro)</option>
+                    <optgroup label="── Persianas ──">
+                      <option value="persiana_rolo">Persiana Rolo (coleção/m²)</option>
+                      <option value="persiana_vertical">Persiana Vertical (coleção/m²)</option>
+                      <option value="persiana_horizontal">Persiana Horizontal (coleção/m²)</option>
+                      <option value="persiana_romana">Persiana Romana (coleção/m²)</option>
+                      <option value="persiana_painel">Persiana Painel (coleção/m²)</option>
+                      <option value="persiana_acessorio">Acessório (Bandô/Sanefa/Motorização)</option>
+                    </optgroup>
                   </select>
                 </div>
                 

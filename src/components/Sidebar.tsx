@@ -3,16 +3,17 @@
 import { useState, useEffect } from "react";
 import Link from "next/link"; // Tem que ser de "next/link"
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  Calculator, 
-  ListBullets, 
-  ChartBar, 
-  SignOut, 
-  CaretLeft, 
+import {
+  Calculator,
+  ListBullets,
+  ChartBar,
+  SignOut,
+  CaretLeft,
   CaretRight,
   UsersThree,
   UserCircle,
-  CurrencyDollar
+  CurrencyDollar,
+  Blinds
 } from "@phosphor-icons/react";
 import { supabase } from "@/lib/supabase";
 
@@ -69,6 +70,7 @@ export default function Sidebar() {
       {/* Menu Principal */}
       <nav className="flex-1 flex flex-col gap-1 px-3">
         <SidebarLink href="/" icon={Calculator} label="Orçamentos" active={pathname === "/"} collapsed={isCollapsed} />
+        <SidebarLink href="/persianas" icon={Blinds} label="Persianas" active={pathname === "/persianas"} collapsed={isCollapsed} />
         <SidebarLink href="/historico" icon={ListBullets} label="Histórico" active={pathname === "/historico"} collapsed={isCollapsed} />
         
         {(role === "ADMIN" || role === "RH") && (
