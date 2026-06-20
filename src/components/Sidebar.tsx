@@ -13,7 +13,7 @@ import {
   UsersThree,
   UserCircle,
   CurrencyDollar,
-  Blinds
+  Rows
 } from "@phosphor-icons/react";
 import { supabase } from "@/lib/supabase";
 
@@ -70,7 +70,7 @@ export default function Sidebar() {
       {/* Menu Principal */}
       <nav className="flex-1 flex flex-col gap-1 px-3">
         <SidebarLink href="/" icon={Calculator} label="Orçamentos" active={pathname === "/"} collapsed={isCollapsed} />
-        <SidebarLink href="/persianas" icon={Blinds} label="Persianas" active={pathname === "/persianas"} collapsed={isCollapsed} />
+        <SidebarLink href="/persianas" icon={Rows} label="Persianas" active={pathname === "/persianas"} collapsed={isCollapsed} />
         <SidebarLink href="/historico" icon={ListBullets} label="Histórico" active={pathname === "/historico"} collapsed={isCollapsed} />
         
         {(role === "ADMIN" || role === "RH") && (

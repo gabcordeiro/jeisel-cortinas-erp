@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   Trash, Plus, CheckCircle, ShoppingCart, Tag, X,
-  MapPin, User, Warning, PencilSimple, Blinds
+  MapPin, User, Warning, PencilSimple, Rows
 } from "@phosphor-icons/react";
 
 const MODELOS = ['Rolo', 'Vertical', 'Horizontal', 'Romana', 'Painel'] as const;
@@ -214,7 +214,7 @@ export default function Persianas() {
       {/* Header */}
       <header className="flex items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
         <div className="p-3 bg-teal-600 text-white rounded-xl shadow-lg">
-          <Blinds size={32} weight="duotone" />
+          <Rows size={32} weight="duotone" />
         </div>
         <div>
           <h1 className="text-2xl font-black text-gray-800 tracking-tight">Orçamento de Persianas</h1>

@@ -15,7 +15,7 @@ import {
   Info,
   CheckCircle,
   PencilSimple,
-  Blinds
+  Rows
 } from "@phosphor-icons/react";
 
 export default function GestorPrecos() {
@@ -193,7 +193,7 @@ export default function GestorPrecos() {
         <TabButton active={activeTab === 'tecidos'}   onClick={() => setActiveTab('tecidos')}   icon={<Palette/>} label="Tecidos e Forros" />
         <TabButton active={activeTab === 'ferragens'} onClick={() => setActiveTab('ferragens')} icon={<Ruler/>}   label="Modelos e Ferragens" />
         <TabButton active={activeTab === 'servicos'}  onClick={() => setActiveTab('servicos')}  icon={<Wrench/>}  label="Serviços Dinâmicos" />
-        <TabButton active={activeTab === 'persianas'} onClick={() => setActiveTab('persianas')} icon={<Blinds/>}  label="Persianas" />
+        <TabButton active={activeTab === 'persianas'} onClick={() => setActiveTab('persianas')} icon={<Rows/>}  label="Persianas" />
         <TabButton active={activeTab === 'taxas'}     onClick={() => setActiveTab('taxas')}     icon={<Info/>}    label="Taxas Globais" />
       </div>
 
