@@ -44,7 +44,8 @@ export default function Historico() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       setRole(user?.user_metadata?.role || "USER");
       fetchPedidos();
     };

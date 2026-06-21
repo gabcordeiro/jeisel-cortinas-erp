@@ -179,7 +179,8 @@ export default function Persianas() {
   const finalizarPedido = async () => {
     if (cart.length === 0) return alert("Adicione pelo menos um item.");
     if (!cliente.trim()) return alert("Informe o nome do cliente.");
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
 
     const pedido = {
       cliente: cliente.trim(),

@@ -321,11 +321,12 @@ export default function Orcamentos() {
 
   const finalizarPedido = async () => {
     if (cart.length === 0) return alert("Adicione itens!");
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
 
     const payload = {
-      cliente: cliente || "Consumidor", 
-      total: totais.total, 
+      cliente: cliente || "Consumidor",
+      total: totais.total,
       vendedor: user?.email,
       status: 'andamento',
       qtd_janelas: cart.length,
