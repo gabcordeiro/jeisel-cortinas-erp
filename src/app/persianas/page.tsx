@@ -35,6 +35,7 @@ export default function Persianas() {
   const [nomeAmbiente, setNomeAmbiente] = useState("");
   const [largura, setLargura]           = useState("");
   const [altura, setAltura]             = useState("");
+  const [valorFabrica, setValorFabrica] = useState("");
   const [modelo, setModelo]             = useState<string>("Rolo");
   const [colecaoId, setColecaoId]       = useState("");
   const [cor, setCor]                   = useState("");
@@ -71,16 +72,16 @@ export default function Persianas() {
 
   // ── Preview do cálculo ───────────────────────────────────
   const preview = useMemo(() => {
-    if (!pricesLoaded || !colecaoId || !largura || !altura) return null;
+    if (!pricesLoaded || !colecaoId || !largura || !altura || !valorFabrica) return null;
     const colecao = colecoesDisponiveis.find(c => c.id === colecaoId);
     if (!colecao) return null;
 
-    const L = Number(largura), H = Number(altura);
-    if (L <= 0 || H <= 0) return null;
+    const L = Number(largura), H = Number(altura), VF = Number(valorFabrica);
+    if (L <= 0 || H <= 0 || VF <= 0) return null;
 
     const margem       = dbTaxas.persiana_margem ?? 0.115;
     const lucio        = dbTaxas.persiana_lucio  ?? 1.5;
-    const valor_fab    = colecao.preco * L * H;
+    const valor_fab    = VF;                                  // valor TOTAL da fábrica (já no tamanho)
     const valor_prod   = valor_fab * (1 + margem) * lucio;
     const bando_price  = bando       && dbBando       ? dbBando.preco * L        : 0;
     const sanefa_price = sanefa      && dbSanefa      ? dbSanefa.preco * L       : 0;
@@ -88,7 +89,7 @@ export default function Persianas() {
     const mat_cost     = valor_prod + bando_price + sanefa_price + motor_price;
 
     return { colecao, L, H, valor_fab, valor_prod, bando_price, sanefa_price, motor_price, mat_cost };
-  }, [pricesLoaded, colecaoId, largura, altura, bando, sanefa, motorizada,
+  }, [pricesLoaded, colecaoId, largura, altura, valorFabrica, bando, sanefa, motorizada,
       colecoesDisponiveis, dbTaxas, dbBando, dbSanefa, dbMotorizacao]);
 
   // ── Totais ───────────────────────────────────────────────
@@ -127,7 +128,7 @@ export default function Persianas() {
     if (!preview || !nomeAmbiente.trim()) return alert("Preencha o nome do ambiente.");
     if (!colecaoId) return alert("Selecione uma coleção.");
 
-    const { colecao, L, H, valor_prod, bando_price, sanefa_price, motor_price, mat_cost } = preview;
+    const { colecao, L, H, valor_fab, valor_prod, bando_price, sanefa_price, motor_price, mat_cost } = preview;
     const area = L * H;
 
     const detalhes_array: any[] = [
@@ -146,6 +147,7 @@ export default function Persianas() {
       colecaoId,
       colecaoNome: colecao.nome,
       cor:         cor || 'A definir',
+      valorFab:    valor_fab,
       bando,
       sanefa,
       motorizada,
@@ -157,13 +159,14 @@ export default function Persianas() {
 
     setCart(prev => editingId !== null ? prev.map(i => i.id === editingId ? item : i) : [...prev, item]);
     setEditingId(null);
-    setNomeAmbiente(""); setLargura(""); setAltura(""); setCor(""); setBando(false); setSanefa(false); setMotorizada(false);
+    setNomeAmbiente(""); setLargura(""); setAltura(""); setValorFabrica(""); setCor(""); setBando(false); setSanefa(false); setMotorizada(false);
   };
 
   const carregarEdicao = (item: any) => {
     setNomeAmbiente(item.nome);
     setLargura(item.largura.toString());
     setAltura(item.altura.toString());
+    setValorFabrica(item.valorFab != null ? item.valorFab.toString() : "");
     setModelo(item.modelo);
     // timeout para aguardar colecoesDisponiveis atualizar
     setTimeout(() => setColecaoId(item.colecaoId), 80);
@@ -302,15 +305,32 @@ export default function Persianas() {
               ) : (
                 <select
                   value={colecaoId}
-                  onChange={e => setColecaoId(e.target.value)}
+                  onChange={e => {
+                    setColecaoId(e.target.value);
+                    const c = colecoesDisponiveis.find(x => x.id === e.target.value);
+                    if (c && Number(c.preco) > 0) setValorFabrica(String(c.preco));
+                  }}
                   className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-teal-500 font-semibold"
                 >
                   <option value="">Selecione uma coleção...</option>
                   {colecoesDisponiveis.map(c => (
-                    <option key={c.id} value={c.id}>{c.nome} — {fmt(c.preco)}/m²</option>
+                    <option key={c.id} value={c.id}>{c.nome}</option>
                   ))}
                 </select>
               )}
+            </div>
+
+            {/* Valor da Fábrica */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase">Valor da Fábrica (R$)</label>
+              <input
+                type="number" step="0.01" min="0"
+                value={valorFabrica}
+                onChange={e => setValorFabrica(e.target.value)}
+                placeholder="Valor total que a fábrica passou para esta peça"
+                className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-teal-500 font-semibold"
+              />
+              <p className="text-[10px] text-gray-400">Digite o valor total que a fábrica cobrou por esta persiana neste tamanho. O sistema aplica +11,5%, ×1,5 e a instalação.</p>
             </div>
 
             {/* Cor */}
@@ -381,11 +401,11 @@ export default function Persianas() {
                     <span>Área: {preview.L.toFixed(2)} × {preview.H.toFixed(2)} = {(preview.L * preview.H).toFixed(2)}m²</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Fábrica ({fmt(colecoesDisponiveis.find(c=>c.id===colecaoId)?.preco || 0)}/m²)</span>
+                    <span>Valor da Fábrica</span>
                     <span>{fmt(preview.valor_fab)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>+ 11,5% + margem (×1,5)</span>
+                    <span>+ 11,5% (margem) × 1,5 (Lúcio)</span>
                     <span>{fmt(preview.valor_prod)}</span>
                   </div>
                   {preview.bando_price > 0  && <div className="flex justify-between"><span>Bandô</span><span>{fmt(preview.bando_price)}</span></div>}
@@ -411,7 +431,7 @@ export default function Persianas() {
 
             {editingId !== null && (
               <button
-                onClick={() => { setEditingId(null); setNomeAmbiente(""); setLargura(""); setAltura(""); setCor(""); setBando(false); setSanefa(false); setMotorizada(false); }}
+                onClick={() => { setEditingId(null); setNomeAmbiente(""); setLargura(""); setAltura(""); setValorFabrica(""); setCor(""); setBando(false); setSanefa(false); setMotorizada(false); }}
                 className="w-full py-2 text-gray-400 text-sm font-bold hover:text-gray-600 transition-colors"
               >
                 Cancelar edição
@@ -545,7 +565,7 @@ export default function Persianas() {
           {/* Info de cálculo */}
           <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-xs text-gray-400 space-y-1">
             <p className="font-bold text-gray-500">Como é calculado:</p>
-            <p>1. Preço fábrica × área</p>
+            <p>1. Valor da fábrica (total da peça)</p>
             <p>2. + 11,5% (margem)</p>
             <p>3. × 1,5 (Lúcio)</p>
             <p>4. + instalação (largura total × taxa, mín. residencial)</p>

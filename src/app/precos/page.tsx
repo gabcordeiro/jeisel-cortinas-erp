@@ -356,11 +356,11 @@ export default function GestorPrecos() {
                     <option value="servico_fixo">Serviço (Fixo)</option>
                     <option value="servico_metro">Serviço (por Metro)</option>
                     <optgroup label="── Persianas ──">
-                      <option value="persiana_rolo">Persiana Rolo (coleção/m²)</option>
-                      <option value="persiana_vertical">Persiana Vertical (coleção/m²)</option>
-                      <option value="persiana_horizontal">Persiana Horizontal (coleção/m²)</option>
-                      <option value="persiana_romana">Persiana Romana (coleção/m²)</option>
-                      <option value="persiana_painel">Persiana Painel (coleção/m²)</option>
+                      <option value="persiana_rolo">Persiana Rolo (coleção)</option>
+                      <option value="persiana_vertical">Persiana Vertical (coleção)</option>
+                      <option value="persiana_horizontal">Persiana Horizontal (coleção)</option>
+                      <option value="persiana_romana">Persiana Romana (coleção)</option>
+                      <option value="persiana_painel">Persiana Painel (coleção)</option>
                       <option value="persiana_acessorio">Acessório (Bandô/Sanefa/Motorização)</option>
                     </optgroup>
                   </select>
