@@ -43,6 +43,7 @@ export default function Persianas() {
   const [sanefa, setSanefa]             = useState(false);
   const [motorizada, setMotorizada]     = useState(false);
   const [editingId, setEditingId]       = useState<number | null>(null);
+  const [editPedidoId, setEditPedidoId] = useState<number | null>(null);
 
   // ── Carga inicial ────────────────────────────────────────
   useEffect(() => {
@@ -56,6 +57,21 @@ export default function Persianas() {
     load();
   }, []);
 
+  // ── Edição de pedido vindo do Histórico ──────────────────
+  useEffect(() => {
+    const editData = localStorage.getItem('jeisel_edit_pedido');
+    if (editData) {
+      const pedido = JSON.parse(editData);
+      // Só assume o pedido se for de persiana; senão devolve pra página de cortinas
+      if (pedido?.totais_data?.tipo === 'persiana') {
+        setCart(pedido.itens || []);
+        setCliente(pedido.cliente || "");
+        setEditPedidoId(pedido.id);
+        localStorage.removeItem('jeisel_edit_pedido');
+      }
+    }
+  }, []);
+
   // ── Coleções disponíveis pelo modelo ─────────────────────
   const colecoesDisponiveis = useMemo(() =>
     materiais.filter(m => m.categoria === categoriaModelo[modelo]),
@@ -66,9 +82,13 @@ export default function Persianas() {
   useEffect(() => { setColecaoId(""); setBando(false); setSanefa(false); }, [modelo]);
 
   // ── Acessórios ───────────────────────────────────────────
-  const dbBando       = useMemo(() => materiais.find(m => m.categoria === 'persiana_acessorio' && m.nome === 'Bandô'),       [materiais]);
-  const dbSanefa      = useMemo(() => materiais.find(m => m.categoria === 'persiana_acessorio' && m.nome === 'Sanefa'),      [materiais]);
-  const dbMotorizacao = useMemo(() => materiais.find(m => m.categoria === 'persiana_acessorio' && m.nome === 'Motorização'), [materiais]);
+  // Busca tolerante: ignora acentos, maiúsculas e texto extra no nome
+  // (ex.: "bando", "Bandô branco" e "BANDÔ" funcionam igual)
+  const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const acessorios    = useMemo(() => materiais.filter(m => m.categoria === 'persiana_acessorio'), [materiais]);
+  const dbBando       = useMemo(() => acessorios.find(m => norm(m.nome).includes('band')),   [acessorios]);
+  const dbSanefa      = useMemo(() => acessorios.find(m => norm(m.nome).includes('sanefa')), [acessorios]);
+  const dbMotorizacao = useMemo(() => acessorios.find(m => norm(m.nome).includes('motor')),  [acessorios]);
 
   // ── Preview do cálculo ───────────────────────────────────
   const preview = useMemo(() => {
@@ -200,9 +220,11 @@ export default function Persianas() {
       data: new Date().toLocaleDateString('pt-BR'),
     };
 
-    const { error } = await supabase.from('pedidos').insert([pedido]);
+    const { error } = editPedidoId
+      ? await supabase.from('pedidos').update(pedido).eq('id', editPedidoId)
+      : await supabase.from('pedidos').insert([pedido]);
     if (!error) {
-      setCart([]); setCliente(""); setKm("");
+      setCart([]); setCliente(""); setKm(""); setEditPedidoId(null);
       router.push('/historico');
     } else {
       alert("Erro ao salvar: " + error.message);
@@ -222,9 +244,24 @@ export default function Persianas() {
         </div>
         <div>
           <h1 className="text-2xl font-black text-gray-800 tracking-tight">Orçamento de Persianas</h1>
-          <p className="text-sm text-gray-500">Versão teste — Rolo, Vertical, Horizontal, Romana, Painel</p>
+          <p className="text-sm text-gray-500">Rolo, Vertical, Horizontal, Romana, Painel</p>
         </div>
       </header>
+
+      {editPedidoId && (
+        <div className="bg-indigo-50 border border-indigo-200 text-indigo-700 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div>
+            <strong className="block text-sm">Modo de Edição Ativo</strong>
+            <span className="text-xs">Você está editando o Pedido #{editPedidoId}. Suas alterações substituirão o pedido original.</span>
+          </div>
+          <button
+            onClick={() => { setEditPedidoId(null); setCart([]); setCliente(""); }}
+            className="px-3 py-1.5 bg-indigo-200 text-indigo-800 rounded-md text-xs font-bold hover:bg-indigo-300 transition whitespace-nowrap"
+          >
+            Cancelar Edição
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col xl:flex-row gap-6 items-start">
 
@@ -352,44 +389,58 @@ export default function Persianas() {
 
                 {modelo === 'Rolo' && (
                   <button
-                    onClick={() => setBando(!bando)}
+                    onClick={() => dbBando && setBando(!bando)}
+                    disabled={!dbBando}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${
-                      bando ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-gray-50 border-gray-100 text-gray-500'
+                      !dbBando ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
+                      : bando  ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-gray-50 border-gray-100 text-gray-500'
                     }`}
                   >
                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${bando ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
                       {bando && <CheckCircle size={12} weight="fill" className="text-white" />}
                     </div>
-                    Bandô {dbBando ? `(+${fmt(dbBando.preco)}/m)` : ''}
+                    Bandô {dbBando ? `(+${fmt(dbBando.preco)}/m)` : '— sem preço cadastrado'}
                   </button>
                 )}
 
                 {modelo === 'Vertical' && (
                   <button
-                    onClick={() => setSanefa(!sanefa)}
+                    onClick={() => dbSanefa && setSanefa(!sanefa)}
+                    disabled={!dbSanefa}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${
-                      sanefa ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-gray-50 border-gray-100 text-gray-500'
+                      !dbSanefa ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
+                      : sanefa  ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-gray-50 border-gray-100 text-gray-500'
                     }`}
                   >
                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${sanefa ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
                       {sanefa && <CheckCircle size={12} weight="fill" className="text-white" />}
                     </div>
-                    Sanefa {dbSanefa ? `(+${fmt(dbSanefa.preco)}/m)` : ''}
+                    Sanefa {dbSanefa ? `(+${fmt(dbSanefa.preco)}/m)` : '— sem preço cadastrado'}
                   </button>
                 )}
 
                 <button
-                  onClick={() => setMotorizada(!motorizada)}
+                  onClick={() => dbMotorizacao && setMotorizada(!motorizada)}
+                  disabled={!dbMotorizacao}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${
-                    motorizada ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-gray-50 border-gray-100 text-gray-500'
+                    !dbMotorizacao ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
+                    : motorizada   ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-gray-50 border-gray-100 text-gray-500'
                   }`}
                 >
                   <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${motorizada ? 'bg-teal-600 border-teal-600' : 'border-gray-300'}`}>
                     {motorizada && <CheckCircle size={12} weight="fill" className="text-white" />}
                   </div>
-                  Motorizada {dbMotorizacao ? `(+${fmt(dbMotorizacao.preco)})` : ''}
+                  Motorizada {dbMotorizacao ? `(+${fmt(dbMotorizacao.preco)})` : '— sem preço cadastrado'}
                 </button>
               </div>
+              {(!dbBando || !dbSanefa || !dbMotorizacao) && (
+                <p className="text-[10px] text-amber-600">
+                  Opcional apagado? Cadastre-o no <b>Gestor de Preços → aba Persianas → Novo Item</b> com a categoria
+                  &quot;Acessório&quot; e um nome contendo {[
+                    !dbBando && 'Bandô', !dbSanefa && 'Sanefa', !dbMotorizacao && 'Motorização'
+                  ].filter(Boolean).join(', ')}.
+                </p>
+              )}
             </div>
 
             {/* Preview */}
@@ -557,7 +608,7 @@ export default function Persianas() {
                 className="w-full py-3.5 bg-teal-600 text-white font-black rounded-xl hover:bg-teal-700 transition-all shadow-md shadow-teal-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <CheckCircle size={18} weight="bold" />
-                Finalizar Orçamento
+                {editPedidoId ? `Salvar Alterações (#${editPedidoId})` : 'Finalizar Orçamento'}
               </button>
             </div>
           </div>

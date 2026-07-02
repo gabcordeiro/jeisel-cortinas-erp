@@ -689,7 +689,7 @@ export default function Historico() {
 
   const carregarParaEdicao = (pedido: any) => {
     localStorage.setItem('jeisel_edit_pedido', JSON.stringify(pedido));
-    router.push('/');
+    router.push(pedido?.totais_data?.tipo === 'persiana' ? '/persianas' : '/');
   };
 
   const handleSort = (key: string) => {
@@ -826,7 +826,16 @@ export default function Historico() {
                 <td className="p-5" onClick={(e) => isSelectMode && e.stopPropagation()}>
                   <StatusDropdown status={p.status} onUpdate={(val) => updateStatus(p.id, val)} />
                 </td>
-                <td className="p-5 font-bold text-gray-800">{p.cliente}</td>
+                <td className="p-5 font-bold text-gray-800">
+                  <div className="flex items-center gap-2">
+                    <span>{p.cliente}</span>
+                    {p.totais_data?.tipo === 'persiana' ? (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-teal-100 text-teal-700 border border-teal-200">Persiana</span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border border-blue-100">Cortina</span>
+                    )}
+                  </div>
+                </td>
                 {role === "ADMIN" ? <td className="p-5 text-xs text-blue-500 font-bold">{p.vendedor || 'Padrão'}</td> : null}
                 <td className="p-5 font-black text-emerald-600">{formatBRL(p.total)}</td>
                 <td className="p-5" onClick={(e) => isSelectMode && e.stopPropagation()}>
@@ -918,7 +927,12 @@ export default function Historico() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-200">
             <div className="p-6 bg-blue-600 text-white flex justify-between items-center">
-              <h2 className="text-xl font-bold flex items-center gap-2"><MathOperations size={24}/> Memória #{selectedPedido.id}</h2>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <MathOperations size={24}/> Memória #{selectedPedido.id}
+                {selectedPedido.totais_data?.tipo === 'persiana' && (
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-teal-500 text-white">Persiana</span>
+                )}
+              </h2>
               <button onClick={() => setSelectedPedido(null)} className="p-1 hover:bg-white/20 rounded"><X size={24}/></button>
             </div>
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
