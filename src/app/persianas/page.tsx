@@ -342,11 +342,7 @@ export default function Persianas() {
               ) : (
                 <select
                   value={colecaoId}
-                  onChange={e => {
-                    setColecaoId(e.target.value);
-                    const c = colecoesDisponiveis.find(x => x.id === e.target.value);
-                    if (c && Number(c.preco) > 0) setValorFabrica(String(c.preco));
-                  }}
+                  onChange={e => setColecaoId(e.target.value)}
                   className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-teal-500 font-semibold"
                 >
                   <option value="">Selecione uma coleção...</option>

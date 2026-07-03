@@ -61,14 +61,18 @@ export default function GestorPrecos() {
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
   };
 
+  // Coleções de persiana não têm preço próprio: o valor da fábrica é digitado
+  // na hora do orçamento, peça por peça. Só acessórios têm preço fixo.
+  const isColecaoPersiana = (cat: string) => cat.startsWith('persiana_') && cat !== 'persiana_acessorio';
+
   const handleAddMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from('materiais').insert([
-      { 
-        nome: novoNome, 
-        categoria: novaCategoria, 
-        preco: Number(novoPreco),
-        fator: Number(novoFator) 
+      {
+        nome: novoNome,
+        categoria: novaCategoria,
+        preco: isColecaoPersiana(novaCategoria) ? 0 : Number(novoPreco),
+        fator: isColecaoPersiana(novaCategoria) ? 1 : Number(novoFator)
       }
     ]);
 
@@ -247,28 +251,34 @@ export default function GestorPrecos() {
                     </span>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-100">
-                      <span className="text-xs font-bold text-gray-400">VALOR (R$)</span>
-                      <input 
-                        type="number" step="0.01" defaultValue={m.preco} 
-                        onBlur={(e) => updateCampoMaterial(m.id, 'preco', Number(e.target.value))}
-                        className="w-24 text-right bg-transparent font-bold text-gray-800 outline-none focus:text-blue-600"
-                      />
+                  {isColecaoPersiana(m.categoria) ? (
+                    <div className="bg-white p-3 rounded-lg border border-gray-100 text-[11px] text-gray-400 font-medium">
+                      Sem preço fixo — o valor da fábrica é digitado na hora do orçamento.
                     </div>
-
-                    {/* FATOR MULT. liberado para forro */}
-                    {!['servico_fixo', 'ferragem', 'servico_metro'].includes(m.categoria) && (
+                  ) : (
+                    <div className="space-y-3">
                       <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-100">
-                        <span className="text-xs font-bold text-gray-400">FATOR MULT.</span>
-                        <input 
-                          type="number" step="0.1" defaultValue={m.fator} 
-                          onBlur={(e) => updateCampoMaterial(m.id, 'fator', Number(e.target.value))}
-                          className="w-20 text-right bg-transparent font-bold text-gray-800 outline-none focus:text-blue-600"
+                        <span className="text-xs font-bold text-gray-400">VALOR (R$)</span>
+                        <input
+                          type="number" step="0.01" defaultValue={m.preco}
+                          onBlur={(e) => updateCampoMaterial(m.id, 'preco', Number(e.target.value))}
+                          className="w-24 text-right bg-transparent font-bold text-gray-800 outline-none focus:text-blue-600"
                         />
                       </div>
-                    )}
-                  </div>
+
+                      {/* FATOR MULT. liberado para forro */}
+                      {!['servico_fixo', 'ferragem', 'servico_metro'].includes(m.categoria) && (
+                        <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-100">
+                          <span className="text-xs font-bold text-gray-400">FATOR MULT.</span>
+                          <input
+                            type="number" step="0.1" defaultValue={m.fator}
+                            onBlur={(e) => updateCampoMaterial(m.id, 'fator', Number(e.target.value))}
+                            className="w-20 text-right bg-transparent font-bold text-gray-800 outline-none focus:text-blue-600"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -366,30 +376,39 @@ export default function GestorPrecos() {
                   </select>
                 </div>
                 
+                {!isColecaoPersiana(novaCategoria) && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-gray-400 uppercase">Preço / Conf. (R$)</label>
+                    <input
+                      type="number"
+                      value={novoPreco}
+                      onChange={(e) => setNovoPreco(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-600 font-bold"
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              {isColecaoPersiana(novaCategoria) ? (
+                <div className="p-4 bg-teal-50 border border-teal-200 rounded-xl text-xs text-teal-700 font-medium flex items-start gap-2">
+                  <Info size={16} className="shrink-0 mt-0.5" />
+                  <span>Coleção de persiana <b>não precisa de preço</b>. Aqui você só cadastra o nome do catálogo. O valor da fábrica é digitado na hora do orçamento, peça por peça, conforme a fábrica passar.</span>
+                </div>
+              ) : (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-400 uppercase">Preço / Conf. (R$)</label>
-                  <input 
-                    type="number" 
-                    value={novoPreco} 
-                    onChange={(e) => setNovoPreco(e.target.value)}
-                    placeholder="0.00"
+                  <label className="text-[10px] font-black text-gray-400 uppercase">Fator (Deixe 1 se não usar)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={novoFator}
+                    onChange={(e) => setNovoFator(e.target.value)}
                     className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-600 font-bold"
                     required
                   />
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-400 uppercase">Fator (Deixe 1 se não usar)</label>
-                <input 
-                  type="number" 
-                  step="0.1"
-                  value={novoFator} 
-                  onChange={(e) => setNovoFator(e.target.value)}
-                  className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-600 font-bold"
-                  required
-                />
-              </div>
+              )}
 
               <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all">
                 Salvar no Banco
