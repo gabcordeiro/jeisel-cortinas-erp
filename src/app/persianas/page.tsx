@@ -135,7 +135,7 @@ export default function Persianas() {
     let totalDesloc = 0;
     if (kmTotal > (dbTaxas.km_livre || 0)) {
       totalDesloc = (kmTotal - dbTaxas.km_livre) * dbTaxas.km_valor;
-      globalDetalhes.push({ nome: 'Deslocamento Extra', desc: `${(kmTotal - dbTaxas.km_livre).toFixed(2)}km`, valor: totalDesloc });
+      globalDetalhes.push({ nome: 'Deslocamento Extra', desc: `${kmTotal.toFixed(0)}km ida+volta − ${dbTaxas.km_livre}km grátis = ${(kmTotal - dbTaxas.km_livre).toFixed(2)}km cobrados`, valor: totalDesloc });
     }
 
     return { mat: totalMat, inst: totalInst, desl: totalDesloc, total: totalMat + totalInst + totalDesloc, globalDetalhes, taxaMinimaAplicada };
@@ -544,7 +544,7 @@ export default function Persianas() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-400 uppercase flex items-center gap-1"><MapPin size={10}/> Distância (km)</label>
+              <label className="text-[10px] font-black text-gray-400 uppercase flex items-center gap-1"><MapPin size={10}/> Distância (KM Ida)</label>
               <input
                 type="number" min="0"
                 value={km}

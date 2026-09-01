@@ -313,7 +313,7 @@ export default function Orcamentos() {
     let kmTotal = (Number(km) || 0) * 2;
     if (kmTotal > dbTaxas.km_livre) {
       totalDesloc = (kmTotal - dbTaxas.km_livre) * dbTaxas.km_valor;
-      globalDetalhes.push({ nome: 'Deslocamento Extra', desc: `${(kmTotal - dbTaxas.km_livre).toFixed(2)}km`, valor: totalDesloc });
+      globalDetalhes.push({ nome: 'Deslocamento Extra', desc: `${kmTotal.toFixed(0)}km ida+volta − ${dbTaxas.km_livre}km grátis = ${(kmTotal - dbTaxas.km_livre).toFixed(2)}km cobrados`, valor: totalDesloc });
     }
 
     return { mat: totalMat, inst: totalInst, desl: totalDesloc, total: totalMat + totalInst + totalDesloc, globalDetalhes, taxaMinimaAplicada };
