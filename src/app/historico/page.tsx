@@ -193,7 +193,7 @@ export default function Historico() {
       return (textoSplit.length * 7.5) + 6; 
     };
 
-    y += infoInline("FORMAS DE PAGAMENTO:", "a prazo em até 10x sem juros ou à vista com 10% de desconto (30% de entrada e restante até o dia da instalação).", y);
+    y += infoInline("FORMAS DE PAGAMENTO:", "a prazo em até 10x sem juros ou à vista com 10% de desconto (50% de entrada e restante até o dia da instalação).", y);
     y += infoInline("PRAZO DE ENTREGA:", "10 dias úteis.", y);
     y += infoInline("CHAVE PIX:", "293956360001-61 Jeisel Almeida Rodrigues de Melo", y);
 
@@ -449,7 +449,7 @@ export default function Historico() {
         spacing: { before: 400, after: 100 },
         children: [
           new TextRun({ text: "FORMAS DE PAGAMENTO: ", bold: true, size: 28 }),
-          new TextRun({ text: "a prazo em até 10x sem juros ou à vista com 10% de desconto (30% de entrada e restante até o dia da instalação).", size: 28 })
+          new TextRun({ text: "a prazo em até 10x sem juros ou à vista com 10% de desconto (50% de entrada e restante até o dia da instalação).", size: 28 })
         ],
       }),
       new Paragraph({
