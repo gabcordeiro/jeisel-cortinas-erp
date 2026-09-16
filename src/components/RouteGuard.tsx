@@ -14,14 +14,16 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      const isPublicPage = pathname === '/login' || pathname === '/redefinir-senha';
 
-      // 1. Não está logado e não está na tela de login? Rua.
-      if (!session && pathname !== '/login') {
+      // 1. Não está logado e não está numa tela pública? Rua.
+      if (!session && !isPublicPage) {
         router.push('/login');
         return;
       }
 
       // 2. Já está logado e tentou acessar a tela de login? Manda pro Início.
+      // (redefinir-senha fica de fora: quem clicou no link pode já ter uma sessão temporária)
       if (session && pathname === '/login') {
         router.push('/');
         return;

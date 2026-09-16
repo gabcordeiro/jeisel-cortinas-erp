@@ -37,12 +37,22 @@ export default function Login() {
     });
 
     if (error) {
-      setFeedback({ 
-        isOpen: true, 
-        type: 'error', 
-        title: 'Acesso Negado', 
-        message: 'E-mail ou senha incorretos. Verifique e tente novamente.' 
-      });
+      const msg = error.message || '';
+      let title = 'Acesso Negado';
+      let mensagem = 'E-mail ou senha incorretos. Verifique e tente novamente.';
+
+      if (error.status === 429 || /rate limit|too many/i.test(msg)) {
+        title = 'Muitas Tentativas';
+        mensagem = 'Foram feitas várias tentativas seguidas. Aguarde alguns minutos antes de tentar novamente.';
+      } else if (/email not confirmed/i.test(msg)) {
+        title = 'E-mail Não Confirmado';
+        mensagem = 'Este e-mail ainda não foi confirmado. Fale com o administrador do sistema.';
+      } else if (/failed to fetch|network/i.test(msg)) {
+        title = 'Sem Conexão';
+        mensagem = 'Não foi possível falar com o servidor. Verifique sua internet e tente novamente.';
+      }
+
+      setFeedback({ isOpen: true, type: 'error', title, message: mensagem });
       setLoading(false);
       return;
     }
@@ -75,7 +85,7 @@ export default function Login() {
 
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/`, // Redireciona de volta para o sistema após clicar no link do email
+      redirectTo: `${window.location.origin}/redefinir-senha`, // Leva à tela de definir a nova senha
     });
 
     if (error) {

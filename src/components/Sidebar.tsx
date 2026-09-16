@@ -40,7 +40,7 @@ export default function Sidebar() {
     await supabase.auth.signOut();
     window.location.href = "/login"; // Uso bruto para limpar cache
   };
-  if (pathname === '/login') return null;
+  if (pathname === '/login' || pathname === '/redefinir-senha') return null;
   return (
     <aside className={`${isCollapsed ? "w-20" : "w-64"} bg-[#0F172A] text-white transition-all duration-300 relative flex flex-col h-screen shadow-2xl z-40`}>
       {/* Botão de Toggle */}

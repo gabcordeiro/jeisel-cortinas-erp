@@ -28,9 +28,12 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isLoginPage = request.nextUrl.pathname.startsWith('/login')
+  // A tela de redefinir senha precisa carregar sem sessão prévia: é lá que o
+  // link de recuperação troca o código pelo acesso temporário.
+  const isPublicPage = isLoginPage || request.nextUrl.pathname.startsWith('/redefinir-senha')
 
 // LÓGICA DE BLOQUEIO
-  if (!user && !isLoginPage) {
+  if (!user && !isPublicPage) {
     // 1. Melhoramos o seu log no terminal para mostrar a rota exata
     console.log(`❌ Acesso negado: Tentativa de acessar [${request.nextUrl.pathname}] sem sessão.`);
     
