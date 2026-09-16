@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { UserPlus, ShieldCheck, UserGear, Eye, Trash, CheckCircle, Warning, X } from "@phosphor-icons/react";
+import { UserPlus, ShieldCheck, UserGear, Eye, Trash, CheckCircle, Warning, X, Key } from "@phosphor-icons/react";
 
 export default function GerenciarUsuarios() {
   const [email, setEmail] = useState("");
@@ -16,7 +16,13 @@ export default function GerenciarUsuarios() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isUserDeleteModalOpen, setIsUserDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
-  
+
+  // Estados para Redefinir Senha
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
+  const [userToReset, setUserToReset] = useState<{ id: string; email: string } | null>(null);
+  const [novaSenhaAdmin, setNovaSenhaAdmin] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+
   // NOVO: Estado para o Modal Bonito de Feedback (Substitui o alert)
   const [feedback, setFeedback] = useState({ isOpen: false, type: 'success', title: '', message: '' });
 
@@ -75,6 +81,36 @@ export default function GerenciarUsuarios() {
     } catch (error) {
       setFeedback({ isOpen: true, type: 'error', title: 'Erro de Conexão', message: 'Não foi possível se comunicar com o servidor.' });
     }
+  };
+
+  const executeResetPassword = async () => {
+    if (!userToReset) return;
+    if (novaSenhaAdmin.length < 6) {
+      setFeedback({ isOpen: true, type: 'error', title: 'Senha Curta', message: 'A senha precisa ter no mínimo 6 caracteres.' });
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const res = await fetch('/api/usuarios', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userToReset.id, password: novaSenhaAdmin })
+      });
+
+      if (res.ok) {
+        setIsResetPasswordModalOpen(false);
+        setNovaSenhaAdmin("");
+        setFeedback({ isOpen: true, type: 'success', title: 'Senha Redefinida', message: `A senha de ${userToReset.email} foi alterada com sucesso.` });
+        setUserToReset(null);
+      } else {
+        const err = await res.json();
+        setFeedback({ isOpen: true, type: 'error', title: 'Erro ao Redefinir', message: err.error });
+      }
+    } catch (error) {
+      setFeedback({ isOpen: true, type: 'error', title: 'Erro de Conexão', message: 'Não foi possível se comunicar com o servidor.' });
+    }
+    setResetLoading(false);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -233,6 +269,7 @@ export default function GerenciarUsuarios() {
                     <td className="p-5">
                       <div className="flex justify-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => setSelectedUser(u)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Eye size={20} weight="bold"/></button>
+                        <button onClick={() => { setUserToReset({ id: u.id, email: u.email }); setNovaSenhaAdmin(""); setIsResetPasswordModalOpen(true); }} title="Redefinir senha" className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-all"><Key size={20} weight="bold"/></button>
                         <button onClick={() => { setUserToDelete(u.id); setIsUserDeleteModalOpen(true); }} className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all"><Trash size={20} weight="bold"/></button>
                       </div>
                     </td>
@@ -267,6 +304,40 @@ export default function GerenciarUsuarios() {
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <p className="font-black text-gray-400 text-[10px] uppercase tracking-widest mb-1">Cadastrado em</p>
                 <p className="text-gray-800 font-bold">{new Date(selectedUser.created_at).toLocaleString('pt-BR')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL REDEFINIR SENHA --- */}
+      {isResetPasswordModalOpen && userToReset && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[60] p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+            <div className="p-6 bg-amber-500 text-white flex justify-between items-center">
+              <h2 className="text-xl font-black flex items-center gap-2"><Key size={24} weight="bold"/> Redefinir Senha</h2>
+              <button onClick={() => setIsResetPasswordModalOpen(false)} className="p-1 hover:bg-white/20 rounded-full transition"><X size={20} weight="bold"/></button>
+            </div>
+            <div className="p-8 space-y-5">
+              <p className="text-sm text-gray-500">
+                Defina uma senha nova para <strong className="text-gray-800">{userToReset.email}</strong>. Avise o funcionário sobre a nova senha por fora do sistema.
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Senha Nova</label>
+                <input
+                  type="password"
+                  autoFocus
+                  value={novaSenhaAdmin}
+                  onChange={(e) => setNovaSenhaAdmin(e.target.value)}
+                  className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:bg-white transition-all font-bold"
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setIsResetPasswordModalOpen(false)} className="flex-1 py-3.5 bg-gray-100 text-gray-600 rounded-xl font-black hover:bg-gray-200 transition">Cancelar</button>
+                <button disabled={resetLoading} onClick={executeResetPassword} className="flex-1 py-3.5 bg-amber-500 text-white rounded-xl font-black hover:bg-amber-600 shadow-lg shadow-amber-200 transition disabled:bg-gray-300 disabled:shadow-none">
+                  {resetLoading ? "Salvando..." : "Salvar"}
+                </button>
               </div>
             </div>
           </div>

@@ -29,6 +29,14 @@ export async function POST(request: Request) {
   return NextResponse.json(data.user);
 }
 
+// REDEFINIR SENHA (Admin troca a senha de um usuário sem precisar do e-mail dele)
+export async function PATCH(request: Request) {
+  const { id, password } = await request.json();
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ success: true });
+}
+
 // DELETAR USUÁRIO
 export async function DELETE(request: Request) {
   const { id } = await request.json();
