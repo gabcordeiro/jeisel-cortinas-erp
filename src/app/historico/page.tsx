@@ -13,7 +13,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx"; 
 // IMPORTANTE: Adicionado o ImageRun aqui
-import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, HeadingLevel, ImageRun } from "docx";
+import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, HeadingLevel, ImageRun, Header, Footer, UnderlineType, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom, TextWrappingType, LineRuleType } from "docx";
 
 export default function Historico() {
   
@@ -198,10 +198,23 @@ export default function Historico() {
     y += infoInline("CHAVE PIX:", "293956360001-61 Jeisel Almeida Rodrigues de Melo", y);
 
     y += 10;
-    doc.setFont("Montserrat", "bold"); 
-    doc.text("*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.", 14, y, { maxWidth: 180, renderingMode: 'fillThenStroke' });
+    if (y > 220) { doc.addPage(); y = 30; }
 
-    doc.setFontSize(11); 
+    doc.setFontSize(14);
+    doc.setFont("Montserrat", "bold");
+    doc.setLineWidth(0.2);
+    const obsTexto = "*Observação: Nosso horário padrão para instalações é de segunda a sexta-feira, até as 18h. Para instalações realizadas após esse horário ou aos sábados, será aplicada uma taxa adicional de R$ 100,00.";
+    const obsSplit = doc.splitTextToSize(obsTexto, 180);
+    doc.text(obsSplit, 14, y, { renderingMode: 'fillThenStroke' });
+    y += (obsSplit.length * 7) + 8;
+
+    doc.setFont("Montserrat", "normal");
+    doc.setLineWidth(0.1);
+    const agradTexto = "Agradecemos a compreensão e ficamos à disposição para melhor atendê-lo!";
+    const agradSplit = doc.splitTextToSize(agradTexto, 180);
+    doc.text(agradSplit, 14, y, { renderingMode: 'fillThenStroke' });
+
+    doc.setFontSize(11);
     doc.setFont("Montserrat", "bold");
     doc.setTextColor(50, 50, 50);
     doc.setLineWidth(0);
@@ -351,53 +364,33 @@ export default function Historico() {
   };
 
   const gerarDocxCliente = async (p: any) => {
-    const childrenElements: any[] = [];
-
-    // Tenta buscar a logo.jpg da pasta public
-    let logoBuffer: ArrayBuffer | null = null;
-    try {
-      const response = await fetch('/logo.jpg');
-      if (response.ok) {
-        logoBuffer = await response.arrayBuffer();
+    const carregar = async (path: string) => {
+      try {
+        const res = await fetch(path);
+        return res.ok ? await res.arrayBuffer() : null;
+      } catch {
+        return null;
       }
-    } catch (e) {
-      console.warn("Logo não encontrada para o DOCX.");
-    }
+    };
+    const [logoBuffer, barraBuffer] = await Promise.all([carregar('/logo.jpg'), carregar('/footer-bar.png')]);
 
-    // Se a logo for encontrada, injeta ela no Word mantendo as proporções do PDF (210x42 ~ 5:1)
-    if (logoBuffer) {
-      childrenElements.push(
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          children: [
-            new ImageRun({
-              data: logoBuffer,
-              transformation: {
-                width: 700, // Largura padrão em pixels para o documento
-                height: 140, // Proporção da altura
-              },
-              type: "jpg", // <-- ESSA É A LINHA QUE CORRIGE O ERRO DO VERCEL
-            }),
-          ],
-        })
-      );
-    }
+    // Layout espelhado no modelo de Word usado pela loja: corpo justificado,
+    // entrelinha 1,5, rótulos sublinhados e uma linha em branco entre os blocos.
+    const linha = (children: TextRun[] = []) =>
+      new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { line: 360, lineRule: LineRuleType.AUTO }, children });
+    const sublinhado = (text: string) => new TextRun({ text, underline: { type: UnderlineType.SINGLE } });
 
-    // Título
-    childrenElements.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 400, after: 600 },
-        children: [new TextRun({ text: "Orçamento", bold: true, size: 36 })], // size em half-points (36 = 18pt)
-      })
-    );
+    const childrenElements: Paragraph[] = [
+      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Orçamento", bold: true, size: 32 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER }),
+      new Paragraph({ alignment: AlignmentType.CENTER }),
+    ];
 
     // Instalação distribuída proporcionalmente entre os ambientes
     const matSumDocxCliente = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
     const instDeslDocxCliente = (p.total || 0) - matSumDocxCliente;
     const totalVistaDocxCliente = (p.total || 0) * 0.9;
 
-    // Iterando os ambientes
     p.itens?.forEach((item: any) => {
       const arrDesc = item.desc.split(' | ');
       const modelo = arrDesc[0] || '';
@@ -405,79 +398,92 @@ export default function Historico() {
       const forro = arrDesc[2] || 'Sem forro';
       const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
 
-      const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
+      const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}. Medidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
 
       const proporcao = matSumDocxCliente > 0 ? (item.mat_cost || 0) / matSumDocxCliente : 0;
       const valorAmbientePrazo = (item.mat_cost || 0) + (instDeslDocxCliente * proporcao);
       const valorAmbienteVista = valorAmbientePrazo * 0.9;
 
-      // Nome do Ambiente
       childrenElements.push(
-        new Paragraph({
-          spacing: { before: 200, after: 100 },
-          children: [new TextRun({ text: `${item.nome}:`, bold: true, size: 28 })], // 28 = 14pt
-        })
-      );
-
-      // Texto Descritivo
-      childrenElements.push(
-        new Paragraph({
-          spacing: { after: 100 },
-          children: [new TextRun({ text: textoCortina, size: 28 })],
-        })
-      );
-
-      // Valor
-      childrenElements.push(
-        new Paragraph({
-          spacing: { after: 400 },
-          children: [new TextRun({ text: `VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`, bold: true, size: 28 })],
-        })
+        linha(),
+        linha([sublinhado(`${item.nome}:`)]),
+        linha(),
+        linha([new TextRun(textoCortina)]),
+        linha(),
+        linha([new TextRun(`VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`)]),
       );
     });
 
     childrenElements.push(
-      new Paragraph({
-        spacing: { after: 400 },
-        children: [new TextRun({ text: `VALOR TOTAL: ${formatBRL(p.total)} a prazo ou ${formatBRL(totalVistaDocxCliente)} à vista.`, bold: true, size: 28 })],
-      })
+      linha(),
+      linha([new TextRun(`VALOR TOTAL: ${formatBRL(p.total)} a prazo ou ${formatBRL(totalVistaDocxCliente)} à vista.`)]),
+      linha(),
+      linha(),
+      linha([sublinhado("FORMAS DE PAGAMENTO:"), new TextRun(" a prazo em até 10x sem juros ou à vista com 10% de desconto (50% de entrada e restante até o dia da instalação).")]),
+      linha(),
+      linha([sublinhado("PRAZO DE ENTREGA:"), new TextRun(" 10 dias úteis.")]),
+      linha(),
+      linha([sublinhado("CHAVE PIX:"), new TextRun(" 293956360001-61 Jeisel Almeida Rodrigues de Melo")]),
+      linha(),
+      linha([new TextRun("*Observação: Nosso horário padrão para instalações é de segunda a sexta-feira, até as 18h. Para instalações realizadas após esse horário ou aos sábados, será aplicada uma taxa adicional de R$ 100,00.")]),
+      linha(),
+      linha([new TextRun("Agradecemos a compreensão e ficamos à disposição para melhor atendê-lo!")]),
     );
 
-    // Rodapé de Informações Financeiras
-    childrenElements.push(
-      new Paragraph({
-        spacing: { before: 400, after: 100 },
-        children: [
-          new TextRun({ text: "FORMAS DE PAGAMENTO: ", bold: true, size: 28 }),
-          new TextRun({ text: "a prazo em até 10x sem juros ou à vista com 10% de desconto (50% de entrada e restante até o dia da instalação).", size: 28 })
-        ],
-      }),
-      new Paragraph({
-        spacing: { after: 100 },
-        children: [
-          new TextRun({ text: "PRAZO DE ENTREGA: ", bold: true, size: 28 }),
-          new TextRun({ text: "10 dias úteis.", size: 28 })
-        ],
-      }),
-      new Paragraph({
-        spacing: { after: 200 },
-        children: [
-          new TextRun({ text: "CHAVE PIX: ", bold: true, size: 28 }),
-          new TextRun({ text: "293956360001-61 Jeisel Almeida Rodrigues de Melo", size: 28 })
-        ],
-      }),
-      new Paragraph({
-        spacing: { after: 400 },
-        children: [
-          new TextRun({ text: "*Observação: não trabalhamos aos sábados. Instalações aos sábados têm acréscimo de R$ 100,00.", bold: true, size: 28 })
-        ],
-      })
-    );
+    // Logo (com a faixa) colada no topo da página, igual ao PDF (210mm x 42mm)
+    const cabecalho = new Header({
+      children: logoBuffer ? [new Paragraph({
+        children: [new ImageRun({
+          type: "jpg",
+          data: logoBuffer,
+          transformation: { width: 794, height: 159 },
+          floating: {
+            horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
+            verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
+            wrap: { type: TextWrappingType.NONE },
+            behindDocument: true,
+          },
+        })],
+      })] : [],
+    });
 
-    // Documento
+    const textoRodape = (text: string) => new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text, font: "Calibri", size: 22, color: "7C8866" })],
+    });
+
+    // Contatos + faixa verde-acinzentada colada na base da página (297mm - 10mm)
+    const rodape = new Footer({
+      children: [
+        textoRodape("WhatsApp: (27) 99316-3890 | Instagram: @cortinas.jc"),
+        textoRodape("Endereço: Rua Felicidade Siqueira, 198 - A Jardim Marilândia - Vila Velha - ES"),
+        ...(barraBuffer ? [new Paragraph({
+          children: [new ImageRun({
+            type: "png",
+            data: barraBuffer,
+            transformation: { width: 794, height: 38 },
+            floating: {
+              horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
+              verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 287 * 36000 },
+              wrap: { type: TextWrappingType.NONE },
+              behindDocument: true,
+            },
+          })],
+        })] : []),
+      ],
+    });
+
     const doc = new Document({
+      styles: { default: { document: { run: { font: "Montserrat", size: 28 } } } }, // 28 = 14pt
       sections: [{
-        properties: {},
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 },
+            margin: { top: 2835, right: 1800, bottom: 2268, left: 1800, header: 720, footer: 720 },
+          },
+        },
+        headers: { default: cabecalho },
+        footers: { default: rodape },
         children: childrenElements,
       }]
     });
@@ -645,6 +651,7 @@ export default function Historico() {
     );
 
     const doc = new Document({
+      styles: { default: { document: { run: { font: "Montserrat", size: 28 } } } }, // 28 = 14pt
       sections: [{ properties: {}, children: childrenElements }]
     });
 
