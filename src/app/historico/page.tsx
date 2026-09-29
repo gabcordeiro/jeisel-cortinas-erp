@@ -11,7 +11,8 @@ import {
 } from "@phosphor-icons/react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx"; 
+import * as XLSX from "xlsx";
+import { desenharPdfCliente } from "@/lib/pdfCliente";
 // IMPORTANTE: Adicionado o ImageRun aqui
 import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, HeadingLevel, ImageRun, Header, Footer, UnderlineType, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom, TextWrappingType, LineRuleType } from "docx";
 
@@ -91,8 +92,7 @@ export default function Historico() {
   // =========================================================================
   const gerarPdfCliente = async (p: any) => {
     const doc = new jsPDF();
-    doc.setLineHeightFactor(1.35); 
-    
+
     try {
       const loadFont = async (path: string, name: string, weight: string) => {
         const res = await fetch(path);
@@ -114,115 +114,7 @@ export default function Historico() {
       doc.setFont('helvetica');
     }
 
-    doc.setTextColor(0, 0, 0);
-    doc.setDrawColor(0, 0, 0);
-
-    try { doc.addImage('/logo.jpg', 'JPEG', 0, 0, 210, 42); } catch (e) { console.error("Logo não encontrada."); }
-
-    doc.setFontSize(20); 
-    doc.setFont("Montserrat", "bold");
-    doc.setLineWidth(0.2);
-    doc.text("Orçamento", 105, 58, { align: "center", renderingMode: 'fillThenStroke' });
-
-    // Instalação distribuída proporcionalmente entre os ambientes
-    const matSumPdfCliente = p.itens?.reduce((acc: number, item: any) => acc + (item.mat_cost || 0), 0) || 0;
-    const instDeslPdfCliente = (p.total || 0) - matSumPdfCliente;
-    const totalVistaPdfCliente = (p.total || 0) * 0.9;
-
-    let y = 75;
-    doc.setFontSize(14);
-
-    p.itens?.forEach((item: any) => {
-      if (y > 220) { doc.addPage(); y = 25; }
-
-      doc.setFont("Montserrat", "bold");
-      doc.setLineWidth(0.2);
-      const ambienteTexto = `${item.nome}:`;
-      doc.text(ambienteTexto, 14, y, { renderingMode: 'fillThenStroke' });
-
-      y += 8;
-
-      doc.setFont("Montserrat", "normal");
-      doc.setLineWidth(0.1);
-      const arrDesc = item.desc.split(' | ');
-      const modelo = arrDesc[0] || '';
-      const tecido = arrDesc[1] || 'Sem tecido';
-      const forro = arrDesc[2] || 'Sem forro';
-      const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
-
-      const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}.\nMedidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
-
-      const splitTexto = doc.splitTextToSize(textoCortina, 180);
-      doc.text(splitTexto, 14, y, { renderingMode: 'fillThenStroke' });
-
-      y += (splitTexto.length * 7.5) + 4;
-
-      const proporcao = matSumPdfCliente > 0 ? (item.mat_cost || 0) / matSumPdfCliente : 0;
-      const valorAmbientePrazo = (item.mat_cost || 0) + (instDeslPdfCliente * proporcao);
-      const valorAmbienteVista = valorAmbientePrazo * 0.9;
-
-      doc.setFont("Montserrat", "bold");
-      doc.setLineWidth(0.2);
-      doc.text(`VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
-
-      y += 18;
-    });
-
-    if (y > 240) { doc.addPage(); y = 30; }
-    doc.setFontSize(14);
-    doc.setFont("Montserrat", "bold");
-    doc.setLineWidth(0.2);
-    doc.text(`VALOR TOTAL: ${formatBRL(p.total)} a prazo ou ${formatBRL(totalVistaPdfCliente)} à vista.`, 14, y, { renderingMode: 'fillThenStroke' });
-    y += 18;
-
-    const infoInline = (titulo: string, texto: string, posY: number) => {
-      doc.setFontSize(14);
-      doc.setFont("Montserrat", "bold");
-      doc.setLineWidth(0.2);
-      doc.text(titulo, 14, posY, { renderingMode: 'fillThenStroke' });
-      
-      const titleWidth = doc.getTextWidth(titulo + " "); 
-      
-      doc.setFont("Montserrat", "normal");
-      doc.setLineWidth(0.1); 
-      const maxWidth = 196 - (14 + titleWidth); 
-      const textoSplit = doc.splitTextToSize(texto, maxWidth); 
-      
-      doc.text(textoSplit, 14 + titleWidth, posY, { renderingMode: 'fillThenStroke' });
-      
-      return (textoSplit.length * 7.5) + 6; 
-    };
-
-    y += infoInline("FORMAS DE PAGAMENTO:", "a prazo em até 10x sem juros ou à vista com 10% de desconto (50% de entrada e restante até o dia da instalação).", y);
-    y += infoInline("PRAZO DE ENTREGA:", "10 dias úteis.", y);
-    y += infoInline("CHAVE PIX:", "293956360001-61 Jeisel Almeida Rodrigues de Melo", y);
-
-    y += 10;
-    if (y > 220) { doc.addPage(); y = 30; }
-
-    doc.setFontSize(14);
-    doc.setFont("Montserrat", "bold");
-    doc.setLineWidth(0.2);
-    const obsTexto = "*Observação: Nosso horário padrão para instalações é de segunda a sexta-feira, até as 18h. Para instalações realizadas após esse horário ou aos sábados, será aplicada uma taxa adicional de R$ 100,00.";
-    const obsSplit = doc.splitTextToSize(obsTexto, 180);
-    doc.text(obsSplit, 14, y, { renderingMode: 'fillThenStroke' });
-    y += (obsSplit.length * 7) + 8;
-
-    doc.setFont("Montserrat", "normal");
-    doc.setLineWidth(0.1);
-    const agradTexto = "Agradecemos a compreensão e ficamos à disposição para melhor atendê-lo!";
-    const agradSplit = doc.splitTextToSize(agradTexto, 180);
-    doc.text(agradSplit, 14, y, { renderingMode: 'fillThenStroke' });
-
-    doc.setFontSize(11);
-    doc.setFont("Montserrat", "bold");
-    doc.setTextColor(50, 50, 50);
-    doc.setLineWidth(0);
-    doc.text("WhatsApp: (27) 99316-3890 | Instagram: @cortinas.jc", 105, 275, { align: "center" });
-    doc.text("Endereço: Rua Felicidade Siqueira, 198 - A Jardim Marilândia - Vila Velha - ES", 105, 281, { align: "center" });
-    
-    doc.setFillColor(220, 224, 212);
-    doc.rect(0, 286, 210, 11, 'F');
+    desenharPdfCliente(doc, p, formatBRL, '/logo.jpg');
 
     doc.save(`JC_Cortinas_Orcamento_${p.cliente.replace(/\s+/g, '_')}.pdf`);
     setIsPdfModalOpen(false);
