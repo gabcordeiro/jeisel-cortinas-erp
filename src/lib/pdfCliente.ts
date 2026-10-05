@@ -1,4 +1,5 @@
 import type { jsPDF } from "jspdf";
+import { descricaoItemCliente } from "./descricaoItem";
 
 // Medidas espelhadas no Word da via do cliente (A4, margens e entrelinha 1,5 em 14pt)
 const LARGURA_PAGINA = 210;
@@ -114,20 +115,13 @@ export function desenharPdfCliente(
   const totalVista = (p.total || 0) * 0.9;
 
   p.itens?.forEach((item: any) => {
-    const arrDesc = item.desc.split(' | ');
-    const modelo = arrDesc[0] || '';
-    const tecido = arrDesc[1] || 'Sem tecido';
-    const forro = arrDesc[2] || 'Sem forro';
-    const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
-    const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}. Medidas: ${item.largura.toFixed(2).replace('.', ',')}x${item.altura.toFixed(2).replace('.', ',')}m.`;
-
     const proporcao = matSum > 0 ? (item.mat_cost || 0) / matSum : 0;
     const valorPrazo = (item.mat_cost || 0) + (instDesl * proporcao);
 
     linhaEmBranco();
     paragrafo([{ texto: `${item.nome}:`, sublinhado: true }]);
     linhaEmBranco();
-    paragrafo([{ texto: textoCortina }]);
+    paragrafo([{ texto: descricaoItemCliente(item) }]);
     linhaEmBranco();
     paragrafo([{ texto: `VALOR: ${formatBRL(valorPrazo)} a prazo ou ${formatBRL(valorPrazo * 0.9)} à vista.` }]);
   });

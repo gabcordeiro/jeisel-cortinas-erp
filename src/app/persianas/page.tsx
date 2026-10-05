@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 
 const MODELOS = ['Rolo', 'Vertical', 'Horizontal', 'Romana', 'Painel'] as const;
+const INSTALACOES = ['Teto', 'Parede', 'Vão'] as const;
 
 const categoriaModelo: Record<string, string> = {
   'Rolo':       'persiana_rolo',
@@ -39,6 +40,7 @@ export default function Persianas() {
   const [modelo, setModelo]             = useState<string>("Rolo");
   const [colecaoId, setColecaoId]       = useState("");
   const [cor, setCor]                   = useState("");
+  const [instalacao, setInstalacao]     = useState<string>("Teto");
   const [bando, setBando]               = useState(false);
   const [sanefa, setSanefa]             = useState(false);
   const [motorizada, setMotorizada]     = useState(false);
@@ -167,6 +169,7 @@ export default function Persianas() {
       colecaoId,
       colecaoNome: colecao.nome,
       cor:         cor || 'A definir',
+      instalacao,
       valorFab:    valor_fab,
       bando,
       sanefa,
@@ -191,6 +194,7 @@ export default function Persianas() {
     // timeout para aguardar colecoesDisponiveis atualizar
     setTimeout(() => setColecaoId(item.colecaoId), 80);
     setCor(item.cor === 'A definir' ? '' : item.cor);
+    setInstalacao(item.instalacao || 'Teto');
     setBando(item.bando);
     setSanefa(item.sanefa);
     setMotorizada(item.motorizada);
@@ -366,6 +370,26 @@ export default function Persianas() {
               <p className="text-[10px] text-gray-400">Digite o valor total que a fábrica cobrou por esta persiana neste tamanho. O sistema aplica +11,5%, ×1,5 e a instalação.</p>
             </div>
 
+            {/* Instalação */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase">Instalação</label>
+              <div className="flex flex-wrap gap-2">
+                {INSTALACOES.map(tipo => (
+                  <button
+                    key={tipo}
+                    onClick={() => setInstalacao(tipo)}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
+                      instalacao === tipo
+                        ? 'bg-teal-600 text-white border-teal-600 shadow-md shadow-teal-200'
+                        : 'bg-gray-50 text-gray-500 border-gray-100 hover:border-teal-300'
+                    }`}
+                  >
+                    {tipo}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Cor */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-gray-400 uppercase">Cor</label>
@@ -503,7 +527,7 @@ export default function Persianas() {
                         <span className="font-bold text-gray-800 truncate">{item.nome}</span>
                       </div>
                       <p className="text-xs text-gray-500 mb-1">
-                        {item.modelo} · {item.colecaoNome} · {item.cor} · {item.largura.toFixed(2)}×{item.altura.toFixed(2)}m
+                        {item.modelo} · {item.colecaoNome} · {item.cor}{item.instalacao ? ` · ${item.instalacao}` : ''} · {item.largura.toFixed(2)}×{item.altura.toFixed(2)}m
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {item.bando      && <span className="text-[10px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-bold">Bandô</span>}

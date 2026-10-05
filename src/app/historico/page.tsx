@@ -13,6 +13,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { desenharPdfCliente } from "@/lib/pdfCliente";
+import { descricaoItemCliente } from "@/lib/descricaoItem";
 // IMPORTANTE: Adicionado o ImageRun aqui
 import { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, HeadingLevel, ImageRun, Header, Footer, UnderlineType, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom, TextWrappingType, LineRuleType } from "docx";
 
@@ -284,14 +285,6 @@ export default function Historico() {
     const totalVistaDocxCliente = (p.total || 0) * 0.9;
 
     p.itens?.forEach((item: any) => {
-      const arrDesc = item.desc.split(' | ');
-      const modelo = arrDesc[0] || '';
-      const tecido = arrDesc[1] || 'Sem tecido';
-      const forro = arrDesc[2] || 'Sem forro';
-      const ferragemName = item.detalhes_array?.find((d: any) => d.tipo === 'Ferragem')?.nome || 'Sem trilho extra';
-
-      const textoCortina = `- Cortina modelo ${modelo.toLowerCase()}, tecido ${tecido.toLowerCase()}, cor a definir, forro em ${forro.toLowerCase()}, instalação teto, ${ferragemName.toLowerCase()}. Medidas: ${item.largura.toFixed(2).replace('.',',')}x${item.altura.toFixed(2).replace('.',',')}m.`;
-
       const proporcao = matSumDocxCliente > 0 ? (item.mat_cost || 0) / matSumDocxCliente : 0;
       const valorAmbientePrazo = (item.mat_cost || 0) + (instDeslDocxCliente * proporcao);
       const valorAmbienteVista = valorAmbientePrazo * 0.9;
@@ -300,7 +293,7 @@ export default function Historico() {
         linha(),
         linha([sublinhado(`${item.nome}:`)]),
         linha(),
-        linha([new TextRun(textoCortina)]),
+        linha([new TextRun(descricaoItemCliente(item))]),
         linha(),
         linha([new TextRun(`VALOR: ${formatBRL(valorAmbientePrazo)} a prazo ou ${formatBRL(valorAmbienteVista)} à vista.`)]),
       );
